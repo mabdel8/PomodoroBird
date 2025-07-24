@@ -12,6 +12,7 @@ struct TaskManagerView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Task.createdAt, order: .reverse) private var allTasks: [Task]
     @Query(sort: \FocusTag.name) private var tags: [FocusTag]
+    @Query(sort: \FocusSession.createdAt, order: .reverse) private var focusSessions: [FocusSession]
     
     @State private var selectedDate = Date()
     @State private var currentWeekOffset = 0
@@ -34,6 +35,47 @@ struct TaskManagerView: View {
         return allTasks.filter { task in
             calendar.isDate(task.plannedDate, inSameDayAs: selectedDate)
         }
+    }
+    
+    // Calculate current streak of consecutive days with completed focus sessions
+    private var currentStreak: Int {
+        let completedSessions = focusSessions.filter { $0.isCompleted }
+        
+        guard !completedSessions.isEmpty else { return 0 }
+        
+        // Group sessions by day
+        let sessionsByDay = Dictionary(grouping: completedSessions) { session in
+            calendar.startOfDay(for: session.createdAt)
+        }
+        
+        // Get unique days with sessions, sorted in descending order
+        let daysWithSessions = Array(sessionsByDay.keys).sorted(by: >)
+        
+        guard !daysWithSessions.isEmpty else { return 0 }
+        
+        let today = calendar.startOfDay(for: Date())
+        var streak = 0
+        var currentDay = today
+        
+        // Count consecutive days starting from today
+        for day in daysWithSessions {
+            if calendar.isDate(day, inSameDayAs: currentDay) {
+                streak += 1
+                currentDay = calendar.date(byAdding: .day, value: -1, to: currentDay) ?? currentDay
+            } else if day < currentDay {
+                // Check if this day is the next consecutive day
+                let expectedDay = calendar.date(byAdding: .day, value: -1, to: currentDay)
+                if let expectedDay = expectedDay, calendar.isDate(day, inSameDayAs: expectedDay) {
+                    streak += 1
+                    currentDay = day
+                } else {
+                    // Gap found, streak ends
+                    break
+                }
+            }
+        }
+        
+        return streak
     }
     
     var body: some View {
@@ -91,16 +133,8 @@ struct TaskManagerView: View {
     
     private var calendarHeader: some View {
         VStack(spacing: 16) {
-            // Month and Year with navigation
+            // Date header with streak
             HStack {
-                Button(action: { changeWeek(-1) }) {
-                    Image(systemName: "chevron.left")
-                        .font(.title3)
-                        .foregroundColor(.primary)
-                }
-                
-                Spacer()
-                
                 Text(selectedDateHeaderText)
                     .font(.custom("Geist", size: 24))
                     .fontWeight(.medium)
@@ -108,10 +142,18 @@ struct TaskManagerView: View {
                 
                 Spacer()
                 
-                Button(action: { changeWeek(1) }) {
-                    Image(systemName: "chevron.right")
-                        .font(.title3)
-                        .foregroundColor(.primary)
+                // Streak display
+                if currentStreak > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.orange)
+                        
+                        Text("\(currentStreak)")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -146,10 +188,12 @@ struct TaskManagerView: View {
             .gesture(
                 DragGesture()
                     .onEnded { value in
-                        if value.translation.width > 50 {
-                            changeWeek(-1)
-                        } else if value.translation.width < -50 {
-                            changeWeek(1)
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            if value.translation.width > 50 {
+                                currentWeekOffset -= 1
+                            } else if value.translation.width < -50 {
+                                currentWeekOffset += 1
+                            }
                         }
                     }
             )
@@ -241,11 +285,7 @@ struct TaskManagerView: View {
         return formatter.string(from: date).uppercased()
     }
     
-    private func changeWeek(_ direction: Int) {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            currentWeekOffset += direction
-        }
-    }
+
     
     private func setupInitialTags() {
         if tags.isEmpty {
