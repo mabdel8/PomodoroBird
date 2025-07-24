@@ -101,7 +101,7 @@ struct TaskManagerView: View {
                 
                 Spacer()
                 
-                Text(monthYearText)
+                Text(selectedDateHeaderText)
                     .font(.custom("Geist", size: 24))
                     .fontWeight(.medium)
                     .foregroundColor(.primary)
@@ -223,13 +223,10 @@ struct TaskManagerView: View {
         }
     }
     
-    private var monthYearText: String {
+    private var selectedDateHeaderText: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        if let weekDate = calendar.date(byAdding: .weekOfYear, value: currentWeekOffset, to: Date()) {
-            return formatter.string(from: weekDate)
-        }
-        return formatter.string(from: Date())
+        formatter.dateFormat = "MMM dd"
+        return formatter.string(from: selectedDate)
     }
     
     private var selectedDateText: String {
