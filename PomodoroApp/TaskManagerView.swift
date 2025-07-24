@@ -10,85 +10,243 @@ import SwiftData
 
 struct TaskManagerView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Task.createdAt, order: .reverse) private var tasks: [Task]
+    @Query(sort: \Task.createdAt, order: .reverse) private var allTasks: [Task]
     @Query(sort: \FocusTag.name) private var tags: [FocusTag]
     
+    @State private var selectedDate = Date()
+    @State private var currentWeekOffset = 0
     @State private var showingNewTaskSheet = false
     @State private var newTaskTitle = ""
     @State private var selectedTagForNewTask: FocusTag?
     @State private var newTaskDuration = 25
+    @State private var newTaskPlannedDate = Date()
+    
+    private var calendar = Calendar.current
+    
+    // Get the current week's dates
+    private var weekDates: [Date] {
+        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: calendar.date(byAdding: .weekOfYear, value: currentWeekOffset, to: Date()) ?? Date())?.start ?? Date()
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
+    }
+    
+    // Filter tasks for the selected date
+    private var tasksForSelectedDate: [Task] {
+        return allTasks.filter { task in
+            calendar.isDate(task.plannedDate, inSameDayAs: selectedDate)
+        }
+    }
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // Header with new task button
-                HStack {
-                    Text("Tasks")
-                        .font(.custom("Geist", size: 28))
-                        .fontWeight(.light)
-                        .foregroundColor(.primary)
+        GeometryReader { geometry in
+            ZStack {
+                VStack(spacing: 0) {
+                    // Calendar Header
+                    calendarHeader
                     
+                    // Tasks Content
+                    tasksContent
+                }
+                
+                // Floating Add Button
+                VStack {
                     Spacer()
-                    
-                    Button(action: { showingNewTaskSheet = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.blue)
+                    HStack {
+                        Spacer()
+                        Button(action: { 
+                            newTaskPlannedDate = selectedDate
+                            showingNewTaskSheet = true 
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.title2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .frame(width: 56, height: 56)
+                                .background(
+                                    Circle()
+                                        .fill(Color.red)
+                                        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                                )
+                        }
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 32)
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
+            }
+        }
+        .sheet(isPresented: $showingNewTaskSheet) {
+            NewTaskSheet(
+                taskTitle: $newTaskTitle,
+                selectedTag: $selectedTagForNewTask,
+                taskDuration: $newTaskDuration,
+                plannedDate: $newTaskPlannedDate,
+                tags: tags,
+                onSave: createNewTask,
+                onCancel: cancelNewTask
+            )
+        }
+        .onAppear {
+            setupInitialTags()
+        }
+    }
+    
+    private var calendarHeader: some View {
+        VStack(spacing: 16) {
+            // Month and Year with navigation
+            HStack {
+                Button(action: { changeWeek(-1) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.title3)
+                        .foregroundColor(.primary)
+                }
                 
-                Divider()
+                Spacer()
                 
-                // Tasks list
-                if tasks.isEmpty {
-                    VStack(spacing: 16) {
-                        Spacer()
-                        
-                        Image(systemName: "list.bullet.clipboard")
-                            .font(.system(size: 48))
+                Text(monthYearText)
+                    .font(.custom("Geist", size: 24))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button(action: { changeWeek(1) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.title3)
+                        .foregroundColor(.primary)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            
+            // Week Days
+            HStack(spacing: 0) {
+                ForEach(Array(weekDates.enumerated()), id: \.offset) { index, date in
+                    VStack(spacing: 8) {
+                        Text(dayOfWeekText(date))
+                            .font(.custom("Geist", size: 14))
+                            .fontWeight(.medium)
                             .foregroundColor(.secondary)
                         
-                        Text("No tasks yet")
-                            .font(.custom("Geist", size: 20))
-                            .fontWeight(.light)
-                            .foregroundColor(.secondary)
-                        
-                        Text("Create your first task to get started")
-                            .font(.custom("Geist", size: 16))
-                            .fontWeight(.light)
-                            .foregroundColor(.secondary.opacity(0.7))
-                        
-                        Spacer()
+                        Button(action: { selectedDate = date }) {
+                            Text("\(calendar.component(.day, from: date))")
+                                .font(.custom("Geist", size: 16))
+                                .fontWeight(.medium)
+                                .foregroundColor(calendar.isDate(date, inSameDayAs: selectedDate) ? .white : .primary)
+                                .frame(width: 32, height: 32)
+                                .background(
+                                    Circle()
+                                        .fill(calendar.isDate(date, inSameDayAs: selectedDate) ? Color.red : Color.clear)
+                                )
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                } else {
-                    List {
-                        ForEach(tasks, id: \.id) { task in
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.horizontal, 24)
+            .gesture(
+                DragGesture()
+                    .onEnded { value in
+                        if value.translation.width > 50 {
+                            changeWeek(-1)
+                        } else if value.translation.width < -50 {
+                            changeWeek(1)
+                        }
+                    }
+            )
+        }
+        .padding(.bottom, 24)
+        .background(Color.gray.opacity(0.05))
+    }
+    
+    private var tasksContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Today's Plan Header
+            HStack {
+                Text("Today's Plan")
+                    .font(.custom("Geist", size: 28))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                if !tasksForSelectedDate.isEmpty {
+                    Text("\(tasksForSelectedDate.filter(\.isCompleted).count)/\(tasksForSelectedDate.count)")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            
+            // Tasks List
+            if tasksForSelectedDate.isEmpty {
+                VStack(spacing: 16) {
+                    Spacer()
+                    
+                    Image(systemName: "calendar")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    
+                    Text("No tasks planned")
+                        .font(.custom("Geist", size: 20))
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Add a task for \(selectedDateText)")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.light)
+                        .foregroundColor(.secondary.opacity(0.7))
+                    
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(tasksForSelectedDate, id: \.id) { task in
                             TaskRowView(task: task) {
                                 toggleTaskCompletion(task)
                             }
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 24, bottom: 8, trailing: 24))
                         }
-                        .onDelete(perform: deleteTasks)
                     }
-                    .listStyle(PlainListStyle())
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 100) // Space for floating button
                 }
             }
-            .sheet(isPresented: $showingNewTaskSheet) {
-                NewTaskSheet(
-                    taskTitle: $newTaskTitle,
-                    selectedTag: $selectedTagForNewTask,
-                    taskDuration: $newTaskDuration,
-                    tags: tags,
-                    onSave: createNewTask,
-                    onCancel: cancelNewTask
-                )
-            }
-            .onAppear {
-                setupInitialTags()
-            }
+        }
+    }
+    
+    private var monthYearText: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        if let weekDate = calendar.date(byAdding: .weekOfYear, value: currentWeekOffset, to: Date()) {
+            return formatter.string(from: weekDate)
+        }
+        return formatter.string(from: Date())
+    }
+    
+    private var selectedDateText: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: selectedDate)
+    }
+    
+    private func dayOfWeekText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E"
+        return formatter.string(from: date).uppercased()
+    }
+    
+    private func changeWeek(_ direction: Int) {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            currentWeekOffset += direction
         }
     }
     
@@ -122,7 +280,7 @@ struct TaskManagerView: View {
     private func createNewTask() {
         guard !newTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
-        let task = Task(title: newTaskTitle, duration: newTaskDuration, tag: selectedTagForNewTask)
+        let task = Task(title: newTaskTitle, duration: newTaskDuration, tag: selectedTagForNewTask, plannedDate: newTaskPlannedDate)
         modelContext.insert(task)
         
         do {
@@ -130,6 +288,7 @@ struct TaskManagerView: View {
             newTaskTitle = ""
             selectedTagForNewTask = nil
             newTaskDuration = 25
+            newTaskPlannedDate = Date()
             showingNewTaskSheet = false
         } catch {
             print("Error saving new task: \(error)")
@@ -140,6 +299,7 @@ struct TaskManagerView: View {
         newTaskTitle = ""
         selectedTagForNewTask = nil
         newTaskDuration = 25
+        newTaskPlannedDate = Date()
         showingNewTaskSheet = false
     }
     
@@ -151,18 +311,6 @@ struct TaskManagerView: View {
             try modelContext.save()
         } catch {
             print("Error updating task: \(error)")
-        }
-    }
-    
-    private func deleteTasks(offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(tasks[index])
-        }
-        
-        do {
-            try modelContext.save()
-        } catch {
-            print("Error deleting tasks: \(error)")
         }
     }
 }
@@ -185,10 +333,10 @@ struct TaskRowView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Completion button
+            // Completion circle
             Button(action: onToggle) {
                 Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
+                    .font(.title2)
                     .foregroundColor(task.isCompleted ? .green : .secondary)
             }
             .buttonStyle(PlainButtonStyle())
@@ -229,7 +377,12 @@ struct TaskRowView: View {
             
             Spacer()
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.gray.opacity(0.05))
+        )
         .contentShape(Rectangle())
     }
 }
@@ -238,6 +391,7 @@ struct NewTaskSheet: View {
     @Binding var taskTitle: String
     @Binding var selectedTag: FocusTag?
     @Binding var taskDuration: Int
+    @Binding var plannedDate: Date
     let tags: [FocusTag]
     let onSave: () -> Void
     let onCancel: () -> Void
@@ -255,6 +409,17 @@ struct NewTaskSheet: View {
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.light)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Planned Date")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    DatePicker("", selection: $plannedDate, displayedComponents: .date)
+                        .datePickerStyle(CompactDatePickerStyle())
+                        .labelsHidden()
                 }
                 
                 VStack(alignment: .leading, spacing: 12) {
@@ -371,4 +536,4 @@ struct TagSelectionChip: View {
 #Preview {
     TaskManagerView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self], inMemory: true)
-} 
+}
