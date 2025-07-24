@@ -12,7 +12,10 @@ import SwiftData
 struct PomodoroAppApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            FocusTag.self,
+            Task.self,
+            FocusSession.self,
+            AppTimerState.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
