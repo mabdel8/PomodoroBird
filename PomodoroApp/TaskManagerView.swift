@@ -148,14 +148,15 @@ struct TaskManagerView: View {
                 
                 // Streak display (always shown)
                 HStack(spacing: 4) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 16))
+                    Image("fire")
+                        .resizable()
+                        .frame(width: 16, height: 16)
                         .foregroundColor(.orange)
                     
                     Text("\(currentStreak)")
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.medium)
-                        .foregroundColor(.orange)
+                        .foregroundColor(.white)
                 }
             }
             .padding(.horizontal, 24)
