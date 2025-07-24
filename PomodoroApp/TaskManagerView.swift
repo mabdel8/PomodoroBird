@@ -21,6 +21,8 @@ struct TaskManagerView: View {
     @State private var selectedTagForNewTask: FocusTag?
     @State private var newTaskDuration = 25
     @State private var newTaskPlannedDate = Date()
+    @State private var isAnimating = false
+    @State private var animationDirection: Int = 0 // -1 for left, 1 for right
     
     private var calendar = Calendar.current
     
@@ -135,6 +137,8 @@ struct TaskManagerView: View {
         VStack(spacing: 16) {
             // Date header with streak
             HStack {
+                Spacer()
+                
                 Text(selectedDateHeaderText)
                     .font(.custom("Geist", size: 24))
                     .fontWeight(.medium)
@@ -142,24 +146,22 @@ struct TaskManagerView: View {
                 
                 Spacer()
                 
-                // Streak display
-                if currentStreak > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.orange)
-                        
-                        Text("\(currentStreak)")
-                            .font(.custom("Geist", size: 16))
-                            .fontWeight(.medium)
-                            .foregroundColor(.orange)
-                    }
+                // Streak display (always shown)
+                HStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.orange)
+                    
+                    Text("\(currentStreak)")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.orange)
                 }
             }
             .padding(.horizontal, 24)
             .padding(.top, 16)
             
-            // Week Days
+            // Week Days with animation
             HStack(spacing: 0) {
                 ForEach(Array(weekDates.enumerated()), id: \.offset) { index, date in
                     VStack(spacing: 8) {
@@ -185,14 +187,40 @@ struct TaskManagerView: View {
                 }
             }
             .padding(.horizontal, 24)
+            .id("week-\(currentWeekOffset)")
+            .offset(x: isAnimating ? (animationDirection > 0 ? -50 : 50) : 0)
+            .opacity(isAnimating ? 0.3 : 1.0)
+            .animation(.easeInOut(duration: 0.3), value: isAnimating)
             .gesture(
                 DragGesture()
                     .onEnded { value in
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            if value.translation.width > 50 {
+                        if value.translation.width > 50 {
+                            // Swiping right (previous week)
+                            animationDirection = -1
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                isAnimating = true
+                            }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                 currentWeekOffset -= 1
-                            } else if value.translation.width < -50 {
+                                animationDirection = 1
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    isAnimating = false
+                                }
+                            }
+                        } else if value.translation.width < -50 {
+                            // Swiping left (next week)
+                            animationDirection = 1
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                isAnimating = true
+                            }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                 currentWeekOffset += 1
+                                animationDirection = -1
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    isAnimating = false
+                                }
                             }
                         }
                     }
