@@ -464,98 +464,143 @@ struct NewTaskSheet: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Task Title")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
+            ScrollView {
+                VStack(spacing: 28) {
+                    // Task Title Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Task Title")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        TextField("What do you want to focus on?", text: $taskTitle)
+                            .font(.custom("Geist", size: 16))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.08))
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+
+                    }
                     
-                    TextField("Enter task title", text: $taskTitle)
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.light)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Planned Date")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                    // Planned Date Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Planned Date")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
+                            .datePickerStyle(GraphicalDatePickerStyle())
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.05))
+                            )
+                    }
                     
-                    DatePicker("", selection: $plannedDate, displayedComponents: .date)
-                        .datePickerStyle(CompactDatePickerStyle())
-                        .labelsHidden()
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Duration")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    HStack(spacing: 12) {
-                        ForEach([15, 25, 30, 45, 60, 90], id: \.self) { duration in
-                            let isSelected = taskDuration == duration
-                            
-                            Button(action: {
-                                taskDuration = duration
-                            }) {
-                                Text("\(duration)m")
-                                    .font(.custom("Geist", size: 14))
-                                    .fontWeight(.medium)
-                                    .foregroundColor(isSelected ? .white : .blue)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
+                    // Duration Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Focus Duration")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                            ForEach([15, 25, 30, 45, 60, 90], id: \.self) { duration in
+                                let isSelected = taskDuration == duration
+                                
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        taskDuration = duration
+                                    }
+                                }) {
+                                    VStack(spacing: 8) {
+                                        Text("\(duration)")
+                                            .font(.custom("Geist", size: 24))
+                                            .fontWeight(.bold)
+                                            .foregroundColor(isSelected ? .white : .primary)
+                                        
+                                        Text("min")
+                                            .font(.custom("Geist", size: 12))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 70)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .fill(isSelected ? .blue : .blue.opacity(0.1))
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(isSelected ? Color.blue : Color.gray.opacity(0.08))
+                                            .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
                                     )
+                                }
+                                .scaleEffect(isSelected ? 1.02 : 1.0)
+                                .animation(.easeInOut(duration: 0.2), value: isSelected)
                             }
-                            .animation(.easeInOut(duration: 0.2), value: isSelected)
                         }
                     }
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Tag")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
                     
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
+                    // Tag Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Category")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
                             ForEach(tags, id: \.id) { tag in
-                                TagSelectionChip(
+                                ModernTagSelectionChip(
                                     tag: tag,
                                     isSelected: selectedTag?.id == tag.id
                                 ) {
-                                    selectedTag = selectedTag?.id == tag.id ? nil : tag
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedTag = selectedTag?.id == tag.id ? nil : tag
+                                    }
                                 }
                             }
                         }
-                        .padding(.horizontal, 2)
                     }
+                    
+                    Spacer(minLength: 40)
                 }
-                
-                Spacer()
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
             }
-            .padding(24)
+            .background(Color(.systemBackground))
             .navigationTitle("New Task")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel", action: onCancel)
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.light)
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .foregroundColor(.blue)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save", action: onSave)
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .disabled(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Save") {
+                        onSave()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .fontWeight(.semibold)
+                    .foregroundColor(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                    .disabled(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
@@ -595,6 +640,56 @@ struct TagSelectionChip: View {
                         )
                 )
         }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct ModernTagSelectionChip: View {
+    let tag: FocusTag
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var chipColor: Color {
+        switch tag.color {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(chipColor)
+                    .frame(width: 12, height: 12)
+                
+                Text(tag.name)
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(isSelected ? .white : .primary)
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isSelected ? chipColor : Color.gray.opacity(0.08))
+                    .stroke(isSelected ? chipColor : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
         .buttonStyle(PlainButtonStyle())
     }
 }
