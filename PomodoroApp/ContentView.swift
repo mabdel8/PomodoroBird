@@ -22,6 +22,12 @@ struct ContentView: View {
                     Image(systemName: "list.bullet")
                     Text("Tasks")
                 }
+            
+            AnalyticsView()
+                .tabItem {
+                    Image(systemName: "chart.bar.fill")
+                    Text("Analytics")
+                }
         }
         .accentColor(.blue)
     }

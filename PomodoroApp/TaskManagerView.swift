@@ -2,7 +2,7 @@
 //  TaskManagerView.swift
 //  PomodoroApp
 //
-//  Created by Mohamed Abdelmagid on 7/23/25.
+//  Created by Abdalla Abdelmagid on 7/23/25.
 //
 
 import SwiftUI
