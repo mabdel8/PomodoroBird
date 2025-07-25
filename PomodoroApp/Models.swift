@@ -30,6 +30,7 @@ final class Task {
     var isCompleted: Bool
     var createdAt: Date
     var completedAt: Date?
+    var plannedDate: Date // Date when task is planned to be done
     var duration: Int // duration in minutes
     
     // Tag relationship stored as values for CloudKit compatibility
@@ -37,13 +38,14 @@ final class Task {
     var tagName: String?
     var tagColor: String?
     
-    init(title: String = "", duration: Int = 25, tag: FocusTag? = nil) {
+    init(title: String = "", duration: Int = 25, tag: FocusTag? = nil, plannedDate: Date = Date()) {
         self.id = UUID()
         self.title = title
         self.duration = duration
         self.isCompleted = false
         self.createdAt = Date()
         self.completedAt = nil
+        self.plannedDate = plannedDate
         
         if let tag = tag {
             self.tagId = tag.id
