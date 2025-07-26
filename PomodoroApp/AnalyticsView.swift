@@ -438,12 +438,18 @@ struct AnalyticsView: View {
     private var yearlyHeatmap: some View {
         VStack(spacing: 16) {
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 15), spacing: 2) {
-                    ForEach(heatmapData, id: \.date) { day in
-                        Rectangle()
-                            .fill(heatmapColor(for: day.focusMinutes))
-                            .frame(width: 12, height: 12)
-                            .cornerRadius(2)
+                VStack(alignment: .leading, spacing: 4) {
+                    // Month labels - compact
+                    monthLabelsForYearly
+                    
+                    // Heatmap grid
+                    LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 15), spacing: 2) {
+                        ForEach(heatmapData, id: \.date) { day in
+                            Rectangle()
+                                .fill(heatmapColor(for: day.focusMinutes))
+                                .frame(width: 12, height: 12)
+                                .cornerRadius(2)
+                        }
                     }
                 }
             }
@@ -627,6 +633,25 @@ struct AnalyticsView: View {
         .frame(height: 200)
     }
     
+    private var monthLabelsForYearly: some View {
+        let monthLetters = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
+        let totalColumns = Int(ceil(Double(heatmapData.count) / 15.0))
+        
+        return HStack(spacing: 2) {
+            ForEach(0..<totalColumns, id: \.self) { columnIndex in
+                let monthIndex = columnIndex / 2 // Every 2 columns = roughly 1 month
+                
+                let shouldShow = columnIndex % 2 == 0 && monthIndex < monthLetters.count
+                let monthLetter = shouldShow ? monthLetters[monthIndex] : ""
+                
+                Text(monthLetter)
+                    .font(.custom("Geist", size: 10))
+                    .foregroundColor(.secondary)
+                    .frame(width: 12, alignment: .center) // Match heatmap square width
+            }
+        }
+    }
+    
     private var heatmapLegend: some View {
         HStack(spacing: 4) {
             Text("Less")
@@ -687,6 +712,12 @@ struct AnalyticsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "E"
         return String(formatter.string(from: date).prefix(1))
+    }
+    
+    private func monthName(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: date)
     }
     
     private func generateCalendarWeeks() -> [[CalendarDay]] {
