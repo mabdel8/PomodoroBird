@@ -325,9 +325,6 @@ struct AnalyticsView: View {
                 // Stats Overview with History Button
                 statsContainerWithHistoryButton
                 
-                // Heatmap Section
-                heatmapContainer
-                
                 // Pie Chart Section
                 if !pieChartData.isEmpty {
                     pieChartContainer
