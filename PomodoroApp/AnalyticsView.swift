@@ -94,7 +94,6 @@ struct AnalyticsView: View {
         let calendar = Calendar.current
         var data: [HeatmapDay] = []
         
-        let endDate = currentDate
         let startDate: Date
         
         switch selectedPeriod {
@@ -323,7 +322,7 @@ struct AnalyticsView: View {
                 }
                 
                 // Stats Overview
-                statsOverview
+                statsContainer
                 
                 // Heatmap Section
                 heatmapContainer
@@ -372,30 +371,101 @@ struct AnalyticsView: View {
         .padding(.horizontal, 24)
     }
     
-    private var statsOverview: some View {
-        HStack(spacing: 16) {
-            StatCard(
-                title: "Total Focus",
-                value: "\(filteredSessions.reduce(0) { $0 + ($1.actualDuration / 60) })",
-                unit: "min",
-                color: .blue
-            )
+    private var statsContainer: some View {
+        let totalMinutes = filteredSessions.reduce(0) { $0 + ($1.actualDuration / 60) }
+        let sessionCount = filteredSessions.count
+        let averageMinutes = sessionCount > 0 ? totalMinutes / sessionCount : 0
+        
+        return VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Overview")
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+            }
             
-            StatCard(
-                title: "Sessions",
-                value: "\(filteredSessions.count)",
-                unit: "",
-                color: .green
-            )
-            
-            StatCard(
-                title: "Avg Session",
-                value: filteredSessions.isEmpty ? "0" : "\(filteredSessions.reduce(0) { $0 + ($1.actualDuration / 60) } / filteredSessions.count)",
-                unit: "min",
-                color: .orange
-            )
+            HStack(spacing: 32) {
+                totalFocusView(totalMinutes: totalMinutes)
+                sessionsView(sessionCount: sessionCount)
+                averageSessionView(averageMinutes: averageMinutes)
+            }
         }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
         .padding(.horizontal, 24)
+    }
+    
+    private func totalFocusView(totalMinutes: Int) -> some View {
+        VStack(spacing: 8) {
+            Text("\(totalMinutes)")
+                .font(.custom("Geist", size: 28))
+                .fontWeight(.bold)
+                .foregroundColor(.blue)
+            
+            VStack(spacing: 2) {
+                Text("Total Focus")
+                    .font(.custom("Geist", size: 14))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text("minutes")
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func sessionsView(sessionCount: Int) -> some View {
+        VStack(spacing: 8) {
+            Text("\(sessionCount)")
+                .font(.custom("Geist", size: 28))
+                .fontWeight(.bold)
+                .foregroundColor(.green)
+            
+            VStack(spacing: 2) {
+                Text("Sessions")
+                    .font(.custom("Geist", size: 14))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text("completed")
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func averageSessionView(averageMinutes: Int) -> some View {
+        VStack(spacing: 8) {
+            Text("\(averageMinutes)")
+                .font(.custom("Geist", size: 28))
+                .fontWeight(.bold)
+                .foregroundColor(.orange)
+            
+            VStack(spacing: 2) {
+                Text("Avg Session")
+                    .font(.custom("Geist", size: 14))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text("minutes")
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
     
     private var activityHeatmap: some View {
@@ -829,47 +899,7 @@ struct AnalyticsView: View {
     }
 }
 
-struct StatCard: View {
-    let title: String
-    let value: String
-    let unit: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.custom("Geist", size: 14))
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-            
-            HStack(alignment: .bottom, spacing: 4) {
-                Text(value)
-                    .font(.custom("Geist", size: 24))
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.custom("Geist", size: 14))
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .offset(y: -2)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(color.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(color.opacity(0.3), lineWidth: 1)
-                )
-        )
-    }
-}
+
 
 // MARK: - Data Models
 
