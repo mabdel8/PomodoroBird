@@ -82,7 +82,8 @@ struct AnalyticsView: View {
             // Show current month (calendar month view)
             startDate = calendar.dateInterval(of: .month, for: endDate)?.start ?? endDate
         case .yearly:
-            startDate = calendar.date(byAdding: .day, value: -365, to: endDate) ?? endDate // 1 year
+            // Show current year from January to December
+            startDate = calendar.dateInterval(of: .year, for: endDate)?.start ?? endDate
         }
         
         // Group sessions by day
@@ -126,7 +127,8 @@ struct AnalyticsView: View {
                 current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
             }
         case .yearly:
-            while current <= endDate {
+            let yearEnd = calendar.dateInterval(of: .year, for: endDate)?.end ?? endDate
+            while current <= yearEnd {
                 let dayStart = calendar.startOfDay(for: current)
                 let sessionsForDay = sessionsByDay[dayStart] ?? []
                 let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
@@ -436,18 +438,12 @@ struct AnalyticsView: View {
     private var yearlyHeatmap: some View {
         VStack(spacing: 16) {
             ScrollView(.horizontal, showsIndicators: false) {
-                VStack(spacing: 8) {
-                    // Month labels
-                    monthLabelsForYearly
-                    
-                    // Heatmap grid
-                    LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 15), spacing: 2) {
-                        ForEach(heatmapData, id: \.date) { day in
-                            Rectangle()
-                                .fill(heatmapColor(for: day.focusMinutes))
-                                .frame(width: 12, height: 12)
-                                .cornerRadius(2)
-                        }
+                LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 15), spacing: 2) {
+                    ForEach(heatmapData, id: \.date) { day in
+                        Rectangle()
+                            .fill(heatmapColor(for: day.focusMinutes))
+                            .frame(width: 12, height: 12)
+                            .cornerRadius(2)
                     }
                 }
             }
@@ -631,26 +627,6 @@ struct AnalyticsView: View {
         .frame(height: 200)
     }
     
-    private var monthLabelsForYearly: some View {
-        let totalDays = heatmapData.count
-        let weeksCount = Int(ceil(Double(totalDays) / 15.0)) // 15 rows, so divide by 15
-        
-        return HStack(spacing: 2) {
-            ForEach(0..<weeksCount, id: \.self) { weekIndex in
-                let dayIndex = weekIndex * 15
-                if dayIndex < heatmapData.count {
-                    let date = heatmapData[dayIndex].date
-                    let shouldShowLabel = weekIndex % 2 == 0 // Show every 2 weeks
-                    
-                    Text(shouldShowLabel ? monthName(from: date) : "")
-                        .font(.custom("Geist", size: 10))
-                        .foregroundColor(.secondary)
-                        .frame(width: 24) // Match the width of two columns (12 + 2 + 12)
-                }
-            }
-        }
-    }
-    
     private var heatmapLegend: some View {
         HStack(spacing: 4) {
             Text("Less")
@@ -711,12 +687,6 @@ struct AnalyticsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "E"
         return String(formatter.string(from: date).prefix(1))
-    }
-    
-    private func monthName(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: date)
     }
     
     private func generateCalendarWeeks() -> [[CalendarDay]] {
