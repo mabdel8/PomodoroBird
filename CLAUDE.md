@@ -29,11 +29,12 @@ All models use denormalized data (storing tag info directly in Task/FocusSession
 
 ### Key Features
 
-- **Timer Interface**: Circular progress indicator, customizable duration (5-120 minutes)
+- **Timer Interface**: Circular progress indicator, horizontal tape measure time selector (5-120 minutes)
 - **Break Management**: Automatic break suggestions, manual break initiation
-- **Task Integration**: Link focus sessions to specific tasks
+- **Task Integration**: Link focus sessions to specific tasks with duration selection
 - **Session Tracking**: Complete history of focus sessions and breaks
 - **Daily Progress**: Tracks total work time per day
+- **Default Task**: Auto-creates "Working" task (25min) when no tasks exist
 
 ## Development Commands
 
@@ -88,6 +89,12 @@ xcodebuild test -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 
 2. **Break System**: Stores paused focus session state when break is initiated
 3. **Task Association**: Tasks linked to sessions via UUID references
 4. **Progress Tracking**: Calculates daily work time from completed focus sessions
+5. **Tape Measure Time Selector**: Horizontal scrolling time picker with automatic selection
+   - Ticks arranged 5→120 minutes (left to right) with 5-minute increments
+   - Each tick uses individual GeometryReader for position tracking with coordinateSpace
+   - Automatic selection based on which tick is closest to screen center (±20pt threshold)
+   - No manual tapping required - selection updates during scroll
+   - Clean interface without overlay indicators or reference lines
 
 ## Important Notes
 
