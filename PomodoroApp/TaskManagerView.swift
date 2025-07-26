@@ -156,7 +156,7 @@ struct TaskManagerView: View {
                     Text("\(currentStreak)")
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.medium)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
             }
             .padding(.horizontal, 24)
@@ -232,34 +232,12 @@ struct TaskManagerView: View {
     }
     
     private var tasksContent: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // Today's Plan Header
-            HStack {
-                Text("Today's Plan")
-                    .font(.custom("Geist", size: 28))
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                if !tasksForSelectedDate.isEmpty {
-                    Text("\(tasksForSelectedDate.filter(\.isCompleted).count)/\(tasksForSelectedDate.count)")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(Color.gray.opacity(0.1))
-                        )
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
-            
-            // Tasks List
+        let incompleteTasks = tasksForSelectedDate.filter { !$0.isCompleted }
+        let completedTasks = tasksForSelectedDate.filter { $0.isCompleted }
+        
+        return VStack(alignment: .leading, spacing: 0) {
             if tasksForSelectedDate.isEmpty {
+                // Empty state
                 VStack(spacing: 16) {
                     Spacer()
                     
@@ -282,14 +260,84 @@ struct TaskManagerView: View {
                 .frame(maxWidth: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(tasksForSelectedDate, id: \.id) { task in
-                            TaskRowView(task: task) {
-                                toggleTaskCompletion(task)
+                    VStack(alignment: .leading, spacing: 24) {
+                        // To-Do Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text("To-Do")
+                                    .font(.custom("Geist", size: 24))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                if !incompleteTasks.isEmpty {
+                                    Text("\(incompleteTasks.count)")
+                                        .font(.custom("Geist", size: 14))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.gray.opacity(0.1))
+                                        )
+                                }
+                            }
+                            
+                            if incompleteTasks.isEmpty {
+                                Text("All tasks completed! 🎉")
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.light)
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 20)
+                                    .frame(maxWidth: .infinity)
+                            } else {
+                                LazyVStack(spacing: 12) {
+                                    ForEach(incompleteTasks, id: \.id) { task in
+                                        TaskRowView(task: task) {
+                                            toggleTaskCompletion(task)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Completed Section
+                        if !completedTasks.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack {
+                                    Text("Completed")
+                                        .font(.custom("Geist", size: 24))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.primary)
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(completedTasks.count)")
+                                        .font(.custom("Geist", size: 14))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.green.opacity(0.1))
+                                        )
+                                }
+                                
+                                LazyVStack(spacing: 12) {
+                                    ForEach(completedTasks, id: \.id) { task in
+                                        TaskRowView(task: task) {
+                                            toggleTaskCompletion(task)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                     .padding(.horizontal, 24)
+                    .padding(.top, 24)
                     .padding(.bottom, 100) // Space for floating button
                 }
             }
