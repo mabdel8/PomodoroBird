@@ -121,7 +121,15 @@ struct ContentView: View {
                         .renderingMode(.template)
                     Text("Tasks")
                 }
-                .tag(1)
+               .tag(1)
+            
+            AnalyticsView()
+                .tabItem {
+                    Image(systemName: "chart.bar.fill")
+                    Text("Analytics")
+                }
+                .tag(2)
+
         }
         .accentColor(.blue)
     }
@@ -509,7 +517,7 @@ struct TimerView: View {
                                         .onAppear {
                                             checkIfTickIsCentered(minute: minute, geometry: tickGeometry)
                                         }
-                                        .onChange(of: tickGeometry.frame(in: .named("scrollView"))) { _ in
+                                        .onChange(of: tickGeometry.frame(in: .named("scrollView"))) { oldValue, newValue in
                                             checkIfTickIsCentered(minute: minute, geometry: tickGeometry)
                                         }
                                 }
