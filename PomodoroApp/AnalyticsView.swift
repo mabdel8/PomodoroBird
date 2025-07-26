@@ -25,6 +25,18 @@ struct AnalyticsView: View {
     
     private var calendar = Calendar.current
     
+    // Chart title based on selected period
+    private var chartTitle: String {
+        switch selectedPeriod {
+        case .weekly:
+            return "Daily Focus Time"
+        case .monthly:
+            return "Weekly Focus Time"
+        case .yearly:
+            return "Monthly Focus Time"
+        }
+    }
+    
     // Filter sessions based on selected period
     private var filteredSessions: [FocusSession] {
         let completedFocusSessions = focusSessions.filter { 
@@ -63,9 +75,12 @@ struct AnalyticsView: View {
         
         switch selectedPeriod {
         case .weekly:
-            startDate = calendar.date(byAdding: .day, value: -49, to: endDate) ?? endDate // 7 weeks
+            // Show current week (7 days)
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: endDate)?.start ?? endDate
+            startDate = weekStart
         case .monthly:
-            startDate = calendar.date(byAdding: .day, value: -90, to: endDate) ?? endDate // ~3 months
+            // Show current month (calendar month view)
+            startDate = calendar.dateInterval(of: .month, for: endDate)?.start ?? endDate
         case .yearly:
             startDate = calendar.date(byAdding: .day, value: -365, to: endDate) ?? endDate // 1 year
         }
@@ -79,7 +94,10 @@ struct AnalyticsView: View {
         
         // Create heatmap data for each day
         var current = startDate
-        while current <= endDate {
+        let finalDate = selectedPeriod == .monthly ? 
+            (calendar.dateInterval(of: .month, for: endDate)?.end ?? endDate) : endDate
+        
+        while current <= finalDate {
             let dayStart = calendar.startOfDay(for: current)
             let sessionsForDay = sessionsByDay[dayStart] ?? []
             let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
@@ -120,55 +138,97 @@ struct AnalyticsView: View {
         let calendar = Calendar.current
         var data: [DailyStatsData] = []
         
-        let endDate = Date()
-        let days: Int
-        
         switch selectedPeriod {
         case .weekly:
-            days = 7
-        case .monthly:
-            days = 30
-        case .yearly:
-            days = 12 // Show months instead of days for yearly
-        }
-        
-        for i in 0..<days {
-            let date: Date
-            let label: String
+            // Show daily data for current week
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+            for i in 0..<7 {
+                let date = calendar.date(byAdding: .day, value: i, to: weekStart) ?? weekStart
+                let formatter = DateFormatter()
+                formatter.dateFormat = "E"
+                let label = formatter.string(from: date)
+                
+                let dayStart = calendar.startOfDay(for: date)
+                let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+                
+                let sessionsForDay = focusSessions.filter { session in
+                    session.isCompleted && 
+                    session.sessionType == "focus" &&
+                    session.createdAt >= dayStart && 
+                    session.createdAt < dayEnd
+                }
+                
+                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(DailyStatsData(
+                    date: date,
+                    label: label,
+                    focusMinutes: totalMinutes,
+                    sessionCount: sessionsForDay.count
+                ))
+            }
             
-            if selectedPeriod == .yearly {
-                date = calendar.date(byAdding: .month, value: -i, to: endDate) ?? endDate
+        case .monthly:
+            // Show weekly data for current month
+            let monthStart = calendar.dateInterval(of: .month, for: Date())?.start ?? Date()
+            let monthEnd = calendar.dateInterval(of: .month, for: Date())?.end ?? Date()
+            
+            var weekStart = calendar.dateInterval(of: .weekOfYear, for: monthStart)?.start ?? monthStart
+            var weekNumber = 1
+            
+            while weekStart < monthEnd && weekNumber <= 5 {
+                let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+                
+                let sessionsForWeek = focusSessions.filter { session in
+                    session.isCompleted && 
+                    session.sessionType == "focus" &&
+                    session.createdAt >= weekStart && 
+                    session.createdAt < weekEnd
+                }
+                
+                let totalMinutes = sessionsForWeek.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(DailyStatsData(
+                    date: weekStart,
+                    label: "W\(weekNumber)",
+                    focusMinutes: totalMinutes,
+                    sessionCount: sessionsForWeek.count
+                ))
+                
+                weekStart = weekEnd
+                weekNumber += 1
+            }
+            
+        case .yearly:
+            // Show monthly data for current year
+            let yearStart = calendar.dateInterval(of: .year, for: Date())?.start ?? Date()
+            for i in 0..<12 {
+                let monthStart = calendar.date(byAdding: .month, value: i, to: yearStart) ?? yearStart
+                let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
+                
                 let formatter = DateFormatter()
                 formatter.dateFormat = "MMM"
-                label = formatter.string(from: date)
-            } else {
-                date = calendar.date(byAdding: .day, value: -i, to: endDate) ?? endDate
-                let formatter = DateFormatter()
-                formatter.dateFormat = selectedPeriod == .weekly ? "E" : "d"
-                label = formatter.string(from: date)
+                let label = formatter.string(from: monthStart)
+                
+                let sessionsForMonth = focusSessions.filter { session in
+                    session.isCompleted && 
+                    session.sessionType == "focus" &&
+                    session.createdAt >= monthStart && 
+                    session.createdAt < monthEnd
+                }
+                
+                let totalMinutes = sessionsForMonth.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(DailyStatsData(
+                    date: monthStart,
+                    label: label,
+                    focusMinutes: totalMinutes,
+                    sessionCount: sessionsForMonth.count
+                ))
             }
-            
-            let dayStart = calendar.startOfDay(for: date)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
-            
-            let sessionsForPeriod = focusSessions.filter { session in
-                session.isCompleted && 
-                session.sessionType == "focus" &&
-                session.createdAt >= dayStart && 
-                session.createdAt < dayEnd
-            }
-            
-            let totalMinutes = sessionsForPeriod.reduce(0) { $0 + ($1.actualDuration / 60) }
-            
-            data.append(DailyStatsData(
-                date: date,
-                label: label,
-                focusMinutes: totalMinutes,
-                sessionCount: sessionsForPeriod.count
-            ))
         }
         
-        return data.reversed()
+        return data
     }
     
     var body: some View {
@@ -195,39 +255,15 @@ struct AnalyticsView: View {
                 statsOverview
                 
                 // Heatmap Section
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Activity Heatmap")
-                        .font(.custom("Geist", size: 22))
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 24)
-                    
-                    activityHeatmap
-                }
+                heatmapContainer
                 
                 // Pie Chart Section
                 if !pieChartData.isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Time by Category")
-                            .font(.custom("Geist", size: 22))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 24)
-                        
-                        timeDistributionChart
-                    }
+                    pieChartContainer
                 }
                 
                 // Bar Chart Section
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Daily Focus Time")
-                        .font(.custom("Geist", size: 22))
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 24)
-                    
-                    dailyFocusChart
-                }
+                barChartContainer
                 
                 Spacer(minLength: 100)
             }
@@ -247,7 +283,7 @@ struct AnalyticsView: View {
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.medium)
                         .foregroundColor(selectedPeriod == period ? .white : .primary)
-                        .padding(.horizontal, 20)
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
@@ -292,6 +328,64 @@ struct AnalyticsView: View {
     }
     
     private var activityHeatmap: some View {
+        Group {
+            switch selectedPeriod {
+            case .weekly:
+                weeklyHeatmap
+            case .monthly:
+                monthlyHeatmap
+            case .yearly:
+                yearlyHeatmap
+            }
+        }
+    }
+    
+    private var weeklyHeatmap: some View {
+        HStack(spacing: 4) {
+            ForEach(heatmapData, id: \.date) { day in
+                VStack(spacing: 4) {
+                    Text(dayOfWeekShort(day.date))
+                        .font(.custom("Geist", size: 10))
+                        .foregroundColor(.secondary)
+                    
+                    Rectangle()
+                        .fill(heatmapColor(for: day.focusMinutes))
+                        .frame(width: 32, height: 32)
+                        .cornerRadius(6)
+                }
+            }
+        }
+    }
+    
+    private var monthlyHeatmap: some View {
+        VStack(spacing: 4) {
+            // Days of week header
+            HStack(spacing: 4) {
+                ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                    Text(day)
+                        .font(.custom("Geist", size: 12))
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .frame(width: 32)
+                }
+            }
+            
+            // Calendar grid
+            let weeks = generateCalendarWeeks()
+            ForEach(0..<weeks.count, id: \.self) { weekIndex in
+                HStack(spacing: 4) {
+                    ForEach(weeks[weekIndex], id: \.date) { day in
+                        Rectangle()
+                            .fill(day.isCurrentMonth ? heatmapColor(for: day.focusMinutes) : Color.clear)
+                            .frame(width: 32, height: 32)
+                            .cornerRadius(6)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var yearlyHeatmap: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 7), spacing: 2) {
                 ForEach(heatmapData, id: \.date) { day in
@@ -301,47 +395,165 @@ struct AnalyticsView: View {
                         .cornerRadius(2)
                 }
             }
-            .padding(.horizontal, 24)
         }
     }
     
-    private var timeDistributionChart: some View {
-        VStack(spacing: 16) {
-            Chart(pieChartData, id: \.tagName) { data in
-                SectorMark(
-                    angle: .value("Minutes", data.minutes),
-                    innerRadius: .ratio(0.4),
-                    angularInset: 2
-                )
-                .foregroundStyle(colorFromString(data.color))
-                .opacity(0.8)
+    private var heatmapContainer: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Activity Heatmap")
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
             }
-            .frame(height: 200)
-            .padding(.horizontal, 24)
             
-            // Legend
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                ForEach(pieChartData, id: \.tagName) { data in
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(colorFromString(data.color))
-                            .frame(width: 12, height: 12)
-                        
-                        Text(data.tagName)
-                            .font(.custom("Geist", size: 14))
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Text("\(data.minutes)m")
-                            .font(.custom("Geist", size: 12))
-                            .fontWeight(.light)
-                            .foregroundColor(.secondary)
-                    }
-                }
+            activityHeatmap
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+    }
+    
+    private var pieChartContainer: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Time by Category")
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
             }
-            .padding(.horizontal, 24)
+            
+            timeDistributionChart
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+    }
+    
+    private var barChartContainer: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text(chartTitle)
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+            }
+            
+            dailyFocusChart
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+    }
+    
+    private var timeDistributionChart: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if pieChartData.isEmpty {
+                emptyPieChartView
+            } else {
+                pieChartWithLegend
+            }
+        }
+    }
+    
+    private var emptyPieChartView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "chart.pie")
+                .font(.system(size: 48))
+                .foregroundColor(.gray.opacity(0.5))
+            
+            Text("No focus data")
+                .font(.custom("Geist", size: 16))
+                .foregroundColor(.secondary)
+        }
+        .frame(height: 200)
+        .frame(maxWidth: .infinity)
+    }
+    
+    private var pieChartWithLegend: some View {
+        HStack(spacing: 20) {
+            pieChart
+            legendView
+        }
+    }
+    
+    private var pieChart: some View {
+        Chart(pieChartData, id: \.tagName) { data in
+            SectorMark(
+                angle: .value("Minutes", data.minutes),
+                angularInset: 1.0
+            )
+            .foregroundStyle(colorFromString(data.color))
+            .cornerRadius(4)
+        }
+        .frame(width: 160, height: 160)
+    }
+    
+    private var legendView: some View {
+        let totalMinutes = pieChartData.reduce(0) { $0 + $1.minutes }
+        
+        return VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(pieChartData.prefix(6)), id: \.tagName) { data in
+                legendItem(data: data, totalMinutes: totalMinutes)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private func legendItem(data: TagTimeData, totalMinutes: Int) -> some View {
+        let percentage = totalMinutes > 0 ? Int((Double(data.minutes) / Double(totalMinutes)) * 100) : 0
+        
+        return HStack(spacing: 8) {
+            Circle()
+                .fill(colorFromString(data.color))
+                .frame(width: 12, height: 12)
+            
+            VStack(alignment: .leading, spacing: 1) {
+                Text(data.tagName)
+                    .font(.custom("Geist", size: 13))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                Text("\(data.minutes) min")
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Text("\(percentage)%")
+                .font(.custom("Geist", size: 11))
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
         }
     }
     
@@ -355,7 +567,6 @@ struct AnalyticsView: View {
             .cornerRadius(4)
         }
         .frame(height: 200)
-        .padding(.horizontal, 24)
     }
     
     private func heatmapColor(for minutes: Int) -> Color {
@@ -382,6 +593,58 @@ struct AnalyticsView: View {
         case "red": return .red
         default: return .blue
         }
+    }
+    
+    private func dayOfWeekShort(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E"
+        return String(formatter.string(from: date).prefix(1))
+    }
+    
+    private func generateCalendarWeeks() -> [[CalendarDay]] {
+        let calendar = Calendar.current
+        let monthStart = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
+        let monthEnd = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
+        
+        // Find the start of the calendar view (beginning of week containing first day of month)
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: monthStart)?.start ?? monthStart
+        
+        var weeks: [[CalendarDay]] = []
+        var currentWeek: [CalendarDay] = []
+        var current = weekStart
+        
+        // Generate 6 weeks to ensure we cover the entire month
+        for _ in 0..<42 { // 6 weeks * 7 days
+            let isCurrentMonth = calendar.isDate(current, equalTo: monthStart, toGranularity: .month)
+            
+            // Find session data for this day
+            let dayData = heatmapData.first { calendar.isDate($0.date, inSameDayAs: current) }
+            
+            currentWeek.append(CalendarDay(
+                date: current,
+                focusMinutes: dayData?.focusMinutes ?? 0,
+                isCurrentMonth: isCurrentMonth
+            ))
+            
+            if currentWeek.count == 7 {
+                weeks.append(currentWeek)
+                currentWeek = []
+                
+                // Stop if we've gone past the month and completed a week
+                if current > monthEnd && weeks.count >= 4 {
+                    break
+                }
+            }
+            
+            current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
+        }
+        
+        // Add any remaining days
+        if !currentWeek.isEmpty {
+            weeks.append(currentWeek)
+        }
+        
+        return weeks
     }
 }
 
@@ -433,6 +696,12 @@ struct HeatmapDay {
     let date: Date
     let sessionCount: Int
     let focusMinutes: Int
+}
+
+struct CalendarDay {
+    let date: Date
+    let focusMinutes: Int
+    let isCurrentMonth: Bool
 }
 
 struct TagTimeData {

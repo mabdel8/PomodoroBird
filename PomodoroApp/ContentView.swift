@@ -432,7 +432,7 @@ struct TimerView: View {
                                         .onAppear {
                                             checkIfTickIsCentered(minute: minute, geometry: tickGeometry)
                                         }
-                                        .onChange(of: tickGeometry.frame(in: .named("scrollView"))) { _ in
+                                        .onChange(of: tickGeometry.frame(in: .named("scrollView"))) { oldValue, newValue in
                                             checkIfTickIsCentered(minute: minute, geometry: tickGeometry)
                                         }
                                 }
