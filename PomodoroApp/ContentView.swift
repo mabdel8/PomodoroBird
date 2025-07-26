@@ -125,7 +125,8 @@ struct ContentView: View {
             
             AnalyticsView()
                 .tabItem {
-                    Image(systemName: "chart.bar.fill")
+                    Image(selectedTab == 2 ? "chartsfilled" : "charts")
+                        .renderingMode(.template)
                     Text("Analytics")
                 }
                 .tag(2)
