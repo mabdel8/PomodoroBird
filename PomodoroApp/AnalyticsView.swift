@@ -634,20 +634,20 @@ struct AnalyticsView: View {
     }
     
     private var monthLabelsForYearly: some View {
-        let monthLetters = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
+        let monthAbbreviations = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         let totalColumns = Int(ceil(Double(heatmapData.count) / 15.0))
         
-        return HStack(spacing: 2) {
+        return HStack(spacing: 0) {
             ForEach(0..<totalColumns, id: \.self) { columnIndex in
                 let monthIndex = columnIndex / 2 // Every 2 columns = roughly 1 month
                 
-                let shouldShow = columnIndex % 2 == 0 && monthIndex < monthLetters.count
-                let monthLetter = shouldShow ? monthLetters[monthIndex] : ""
+                let shouldShow = columnIndex % 2 == 0 && monthIndex < monthAbbreviations.count
+                let monthText = shouldShow ? monthAbbreviations[monthIndex] : ""
                 
-                Text(monthLetter)
-                    .font(.custom("Geist", size: 10))
+                Text(monthText)
+                    .font(.custom("Geist", size: 7))
                     .foregroundColor(.secondary)
-                    .frame(width: 12, alignment: .center) // Match heatmap square width
+                    .frame(width: 14.5, alignment: .center) // Minimal spacing between months
             }
         }
     }
