@@ -22,6 +22,7 @@ struct AnalyticsView: View {
     
     @State private var selectedPeriod: TimePeriod = .weekly
     @State private var currentDate = Date()
+    @State private var showingSessionHistory = false
     
     private var calendar = Calendar.current
     
@@ -321,8 +322,8 @@ struct AnalyticsView: View {
                     periodSelector
                 }
                 
-                // Stats Overview
-                statsContainer
+                // Stats Overview with History Button
+                statsContainerWithHistoryButton
                 
                 // Heatmap Section
                 heatmapContainer
@@ -339,6 +340,9 @@ struct AnalyticsView: View {
             }
         }
         .background(Color(.systemBackground))
+        .sheet(isPresented: $showingSessionHistory) {
+            SessionHistoryView(focusSessions: focusSessions)
+        }
     }
     
     private var periodSelector: some View {
@@ -403,6 +407,34 @@ struct AnalyticsView: View {
                 .stroke(Color.gray.opacity(0.1), lineWidth: 1)
         )
         .padding(.horizontal, 24)
+    }
+    
+    private var statsContainerWithHistoryButton: some View {
+        ZStack(alignment: .topTrailing) {
+            statsContainer
+            
+            Button(action: {
+                showingSessionHistory = true
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 14, weight: .medium))
+                    
+                    Text("History")
+                        .font(.custom("Geist", size: 14))
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(.blue)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.blue.opacity(0.1))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+            .offset(x: -20, y: 20) // Position at top right of container
+        }
     }
     
     private func totalFocusView(totalMinutes: Int) -> some View {
@@ -926,6 +958,102 @@ struct DailyStatsData {
     let label: String
     let focusMinutes: Int
     let sessionCount: Int
+}
+
+struct SessionHistoryView: View {
+    let focusSessions: [FocusSession]
+    @Environment(\.dismiss) private var dismiss
+    
+    private var recentSessions: [FocusSession] {
+        focusSessions
+            .filter { $0.isCompleted && $0.sessionType == "focus" }
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(50)
+            .map { $0 }
+    }
+    
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(recentSessions, id: \.id) { session in
+                    SessionRowView(session: session)
+                }
+            }
+            .navigationTitle("Session History")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                }
+            }
+        }
+    }
+}
+
+struct SessionRowView: View {
+    let session: FocusSession
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(session.taskTitle ?? "Focus Session")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    if let tagName = session.tagName, let tagColor = session.tagColor {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(colorFromString(tagColor))
+                                .frame(width: 8, height: 8)
+                            
+                            Text(tagName)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.light)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(session.actualDuration / 60) min")
+                        .font(.custom("Geist", size: 14))
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                    
+                    Text(dateFormatter.string(from: session.createdAt))
+                        .font(.custom("Geist", size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func colorFromString(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
+    }
 }
 
 #Preview {
