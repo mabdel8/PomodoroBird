@@ -333,6 +333,9 @@ struct AnalyticsView: View {
                 // Bar Chart Section
                 barChartContainer
                 
+                // Bird Unlocked Section
+                birdUnlockedContainer
+                
                 Spacer(minLength: 100)
             }
         }
@@ -385,32 +388,6 @@ struct AnalyticsView: View {
                     .foregroundColor(.primary)
                 
                 Spacer()
-            }
-            
-            HStack(spacing: 32) {
-                totalFocusView(totalMinutes: totalMinutes)
-                sessionsView(sessionCount: sessionCount)
-                averageSessionView(averageMinutes: averageMinutes)
-            }
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.gray.opacity(0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-        )
-        .padding(.horizontal, 24)
-    }
-    
-    private var statsContainerWithHistoryButton: some View {
-        VStack(spacing: 10) {
-            // History button above container
-            HStack {
-                Spacer()
                 
                 Button(action: {
                     showingSessionHistory = true
@@ -433,11 +410,31 @@ struct AnalyticsView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
             }
-            .padding(.horizontal, 24)
             
-            // Stats container
-            statsContainer
+            HStack(spacing: 32) {
+                totalFocusView(totalMinutes: totalMinutes)
+                sessionsView(sessionCount: sessionCount)
+                averageSessionView(averageMinutes: averageMinutes)
+            }
+            
+            // Most Focused Day
+            mostFocusedDayView
         }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+    }
+    
+    private var statsContainerWithHistoryButton: some View {
+        statsContainer
     }
     
     private func totalFocusView(totalMinutes: Int) -> some View {
@@ -501,6 +498,52 @@ struct AnalyticsView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+    
+    private var mostFocusedDayView: some View {
+        let dailyTotals = Dictionary(grouping: filteredSessions) { session in
+            calendar.startOfDay(for: session.createdAt)
+        }.mapValues { sessions in
+            sessions.reduce(0) { $0 + ($1.actualDuration / 60) }
+        }
+        
+        let mostFocusedDay = dailyTotals.max { $0.value < $1.value }
+        let formatter = DateFormatter()
+        
+        // Adjust date format based on selected period
+        switch selectedPeriod {
+        case .weekly:
+            formatter.dateFormat = "E, MMM d" // "Fri, Jul 25"
+        case .monthly:
+            formatter.dateFormat = "MMM d" // "Jul 25"
+        case .yearly:
+            formatter.dateFormat = "MMM d, yyyy" // "Jul 25, 2024"
+        }
+        
+        return HStack(spacing: 8) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.orange)
+            
+            Text("Most Focused Day")
+                .font(.custom("Geist", size: 16))
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            Group {
+                if let mostDay = mostFocusedDay {
+                    Text("\(formatter.string(from: mostDay.key)), \(mostDay.value) min")
+                        .font(.custom("Geist", size: 16))
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("No data")
+                        .font(.custom("Geist", size: 16))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
     }
     
     private var activityHeatmap: some View {
@@ -670,6 +713,51 @@ struct AnalyticsView: View {
             }
             
             dailyFocusChart
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+    }
+    
+    private var birdUnlockedContainer: some View {
+        HStack {
+            HStack(spacing: 12) {
+                Image(systemName: "bird.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.primary)
+                
+                Text("Bird Unlocked")
+                    .font(.custom("Geist", size: 18))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 12) {
+                Image("robin") // Assuming you have a robin asset
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                    .clipShape(Circle())
+                
+                Text("Robin")
+                    .font(.custom("Geist", size: 18))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(20)
         .background(Color(.systemBackground))
