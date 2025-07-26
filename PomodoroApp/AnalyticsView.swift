@@ -75,7 +75,7 @@ struct AnalyticsView: View {
         
         switch selectedPeriod {
         case .weekly:
-            // Show current week (7 days)
+            // Show current week (always 7 days starting from week start)
             let weekStart = calendar.dateInterval(of: .weekOfYear, for: endDate)?.start ?? endDate
             startDate = weekStart
         case .monthly:
@@ -94,21 +94,51 @@ struct AnalyticsView: View {
         
         // Create heatmap data for each day
         var current = startDate
-        let finalDate = selectedPeriod == .monthly ? 
-            (calendar.dateInterval(of: .month, for: endDate)?.end ?? endDate) : endDate
         
-        while current <= finalDate {
-            let dayStart = calendar.startOfDay(for: current)
-            let sessionsForDay = sessionsByDay[dayStart] ?? []
-            let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
-            
-            data.append(HeatmapDay(
-                date: dayStart,
-                sessionCount: sessionsForDay.count,
-                focusMinutes: totalMinutes
-            ))
-            
-            current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
+        switch selectedPeriod {
+        case .weekly:
+            // Always show exactly 7 days for weekly view
+            for i in 0..<7 {
+                let dayDate = calendar.date(byAdding: .day, value: i, to: startDate) ?? startDate
+                let dayStart = calendar.startOfDay(for: dayDate)
+                let sessionsForDay = sessionsByDay[dayStart] ?? []
+                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(HeatmapDay(
+                    date: dayStart,
+                    sessionCount: sessionsForDay.count,
+                    focusMinutes: totalMinutes
+                ))
+            }
+        case .monthly:
+            let finalDate = calendar.dateInterval(of: .month, for: endDate)?.end ?? endDate
+            while current <= finalDate {
+                let dayStart = calendar.startOfDay(for: current)
+                let sessionsForDay = sessionsByDay[dayStart] ?? []
+                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(HeatmapDay(
+                    date: dayStart,
+                    sessionCount: sessionsForDay.count,
+                    focusMinutes: totalMinutes
+                ))
+                
+                current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
+            }
+        case .yearly:
+            while current <= endDate {
+                let dayStart = calendar.startOfDay(for: current)
+                let sessionsForDay = sessionsByDay[dayStart] ?? []
+                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(HeatmapDay(
+                    date: dayStart,
+                    sessionCount: sessionsForDay.count,
+                    focusMinutes: totalMinutes
+                ))
+                
+                current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
+            }
         }
         
         return data
@@ -341,59 +371,91 @@ struct AnalyticsView: View {
     }
     
     private var weeklyHeatmap: some View {
-        HStack(spacing: 4) {
-            ForEach(heatmapData, id: \.date) { day in
-                VStack(spacing: 4) {
-                    Text(dayOfWeekShort(day.date))
-                        .font(.custom("Geist", size: 10))
-                        .foregroundColor(.secondary)
-                    
-                    Rectangle()
-                        .fill(heatmapColor(for: day.focusMinutes))
-                        .frame(width: 32, height: 32)
-                        .cornerRadius(6)
-                }
-            }
-        }
-    }
-    
-    private var monthlyHeatmap: some View {
-        VStack(spacing: 4) {
-            // Days of week header
+        VStack(spacing: 16) {
+            // Weekly calendar - centered
             HStack(spacing: 4) {
-                ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
-                    Text(day)
-                        .font(.custom("Geist", size: 12))
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .frame(width: 32)
-                }
-            }
-            
-            // Calendar grid
-            let weeks = generateCalendarWeeks()
-            ForEach(0..<weeks.count, id: \.self) { weekIndex in
-                HStack(spacing: 4) {
-                    ForEach(weeks[weekIndex], id: \.date) { day in
+                ForEach(heatmapData, id: \.date) { day in
+                    VStack(spacing: 4) {
+                        Text(dayOfWeekShort(day.date))
+                            .font(.custom("Geist", size: 10))
+                            .foregroundColor(.secondary)
+                        
                         Rectangle()
-                            .fill(day.isCurrentMonth ? heatmapColor(for: day.focusMinutes) : Color.clear)
+                            .fill(heatmapColor(for: day.focusMinutes))
                             .frame(width: 32, height: 32)
                             .cornerRadius(6)
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
+            
+            // Legend - bottom right
+            HStack {
+                Spacer()
+                heatmapLegend
+            }
+        }
+    }
+    
+    private var monthlyHeatmap: some View {
+        VStack(spacing: 16) {
+            VStack(spacing: 4) {
+                // Days of week header
+                HStack(spacing: 4) {
+                    ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                        Text(day)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                            .frame(width: 32)
+                    }
+                }
+                
+                // Calendar grid
+                let weeks = generateCalendarWeeks()
+                ForEach(0..<weeks.count, id: \.self) { weekIndex in
+                    HStack(spacing: 4) {
+                        ForEach(weeks[weekIndex], id: \.date) { day in
+                            Rectangle()
+                                .fill(day.isCurrentMonth ? heatmapColor(for: day.focusMinutes) : Color.clear)
+                                .frame(width: 32, height: 32)
+                                .cornerRadius(6)
+                        }
+                    }
+                }
+            }
+            
+            // Legend
+            HStack {
+                Spacer()
+                heatmapLegend
+            }
         }
     }
     
     private var yearlyHeatmap: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 7), spacing: 2) {
-                ForEach(heatmapData, id: \.date) { day in
-                    Rectangle()
-                        .fill(heatmapColor(for: day.focusMinutes))
-                        .frame(width: 12, height: 12)
-                        .cornerRadius(2)
+        VStack(spacing: 16) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(spacing: 8) {
+                    // Month labels
+                    monthLabelsForYearly
+                    
+                    // Heatmap grid
+                    LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 15), spacing: 2) {
+                        ForEach(heatmapData, id: \.date) { day in
+                            Rectangle()
+                                .fill(heatmapColor(for: day.focusMinutes))
+                                .frame(width: 12, height: 12)
+                                .cornerRadius(2)
+                        }
+                    }
                 }
+            }
+            
+            // Legend
+            HStack {
+                Spacer()
+                heatmapLegend
             }
         }
     }
@@ -569,18 +631,68 @@ struct AnalyticsView: View {
         .frame(height: 200)
     }
     
+    private var monthLabelsForYearly: some View {
+        let totalDays = heatmapData.count
+        let weeksCount = Int(ceil(Double(totalDays) / 15.0)) // 15 rows, so divide by 15
+        
+        return HStack(spacing: 2) {
+            ForEach(0..<weeksCount, id: \.self) { weekIndex in
+                let dayIndex = weekIndex * 15
+                if dayIndex < heatmapData.count {
+                    let date = heatmapData[dayIndex].date
+                    let shouldShowLabel = weekIndex % 2 == 0 // Show every 2 weeks
+                    
+                    Text(shouldShowLabel ? monthName(from: date) : "")
+                        .font(.custom("Geist", size: 10))
+                        .foregroundColor(.secondary)
+                        .frame(width: 24) // Match the width of two columns (12 + 2 + 12)
+                }
+            }
+        }
+    }
+    
+    private var heatmapLegend: some View {
+        HStack(spacing: 4) {
+            Text("Less")
+                .font(.custom("Geist", size: 11))
+                .foregroundColor(.secondary)
+            
+            Rectangle()
+                .fill(Color.gray.opacity(0.1))
+                .frame(width: 10, height: 10)
+                .cornerRadius(2)
+            
+            Rectangle()
+                .fill(Color.green.opacity(0.3))
+                .frame(width: 10, height: 10)
+                .cornerRadius(2)
+            
+            Rectangle()
+                .fill(Color.green.opacity(0.6))
+                .frame(width: 10, height: 10)
+                .cornerRadius(2)
+            
+            Rectangle()
+                .fill(Color.green.opacity(0.9))
+                .frame(width: 10, height: 10)
+                .cornerRadius(2)
+            
+            Text("More")
+                .font(.custom("Geist", size: 11))
+                .foregroundColor(.secondary)
+        }
+    }
+    
     private func heatmapColor(for minutes: Int) -> Color {
         switch minutes {
         case 0:
-            return Color.gray.opacity(0.1)
-        case 1...25:
-            return Color.green.opacity(0.3)
-        case 26...50:
-            return Color.green.opacity(0.5)
-        case 51...75:
-            return Color.green.opacity(0.7)
+            return Color.gray.opacity(0.1) // No focus
+        case 1...59:
+            return Color.green.opacity(0.3) // Less than 1 hour
+        case 60...179:
+            return Color.green.opacity(0.6) // 1-3 hours
         default:
-            return Color.green.opacity(0.9)
+            return Color.green.opacity(0.9) // More than 3 hours
         }
     }
     
@@ -599,6 +711,12 @@ struct AnalyticsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "E"
         return String(formatter.string(from: date).prefix(1))
+    }
+    
+    private func monthName(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        return formatter.string(from: date)
     }
     
     private func generateCalendarWeeks() -> [[CalendarDay]] {
