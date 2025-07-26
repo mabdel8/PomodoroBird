@@ -8,20 +8,120 @@
 import SwiftUI
 import SwiftData
 
-struct ContentView: View {
+// Custom SVG-inspired icons
+struct CustomPlayIcon: View {
     var body: some View {
-        TabView {
+        Path { path in
+            path.move(to: CGPoint(x: 5.25, y: 5.653))
+            path.addCurve(
+                to: CGPoint(x: 6.917, y: 4.667),
+                control1: CGPoint(x: 5.25, y: 4.797),
+                control2: CGPoint(x: 6.167, y: 4.255)
+            )
+            path.addLine(to: CGPoint(x: 18.457, y: 11.014))
+            path.addCurve(
+                to: CGPoint(x: 18.457, y: 12.986),
+                control1: CGPoint(x: 19.082, y: 11.389),
+                control2: CGPoint(x: 19.082, y: 12.611)
+            )
+            path.addLine(to: CGPoint(x: 6.917, y: 19.333))
+            path.addCurve(
+                to: CGPoint(x: 5.25, y: 18.347),
+                control1: CGPoint(x: 6.167, y: 19.745),
+                control2: CGPoint(x: 5.25, y: 19.203)
+            )
+            path.addLine(to: CGPoint(x: 5.25, y: 5.653))
+            path.closeSubpath()
+        }
+        .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+        .frame(width: 24, height: 24)
+    }
+}
+
+struct CustomTimerIcon: View {
+    var body: some View {
+        Path { path in
+            // Clock face (circle)
+            path.addEllipse(in: CGRect(x: 3, y: 3, width: 18, height: 18))
+            
+            // Hour hand (12 to 6)
+            path.move(to: CGPoint(x: 12, y: 6))
+            path.addLine(to: CGPoint(x: 12, y: 12))
+            
+            // Minute hand (12 to 4.5)
+            path.move(to: CGPoint(x: 12, y: 12))
+            path.addLine(to: CGPoint(x: 16.5, y: 12))
+        }
+        .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+        .frame(width: 24, height: 24)
+    }
+}
+
+struct CustomTaskIcon: View {
+    var body: some View {
+        Path { path in
+            // Clipboard outline
+            path.move(to: CGPoint(x: 6, y: 6.878))
+            path.addLine(to: CGPoint(x: 6, y: 6))
+            path.addCurve(
+                to: CGPoint(x: 8.25, y: 3.75),
+                control1: CGPoint(x: 6, y: 4.756),
+                control2: CGPoint(x: 7.006, y: 3.75)
+            )
+            path.addLine(to: CGPoint(x: 15.75, y: 3.75))
+            path.addCurve(
+                to: CGPoint(x: 18, y: 6),
+                control1: CGPoint(x: 16.994, y: 3.75),
+                control2: CGPoint(x: 18, y: 4.756)
+            )
+            path.addLine(to: CGPoint(x: 18, y: 6.878))
+            
+            // Inner rectangle
+            path.move(to: CGPoint(x: 4.5, y: 9))
+            path.addLine(to: CGPoint(x: 4.5, y: 18))
+            path.addCurve(
+                to: CGPoint(x: 6.75, y: 20.25),
+                control1: CGPoint(x: 4.5, y: 19.244),
+                control2: CGPoint(x: 5.506, y: 20.25)
+            )
+            path.addLine(to: CGPoint(x: 17.25, y: 20.25))
+            path.addCurve(
+                to: CGPoint(x: 19.5, y: 18),
+                control1: CGPoint(x: 18.494, y: 20.25),
+                control2: CGPoint(x: 19.5, y: 19.244)
+            )
+            path.addLine(to: CGPoint(x: 19.5, y: 9))
+            path.addCurve(
+                to: CGPoint(x: 18, y: 6.878),
+                control1: CGPoint(x: 19.5, y: 8.02),
+                control2: CGPoint(x: 18.874, y: 7.191)
+            )
+        }
+        .stroke(Color.primary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+        .frame(width: 24, height: 24)
+    }
+}
+
+struct ContentView: View {
+    @State private var selectedTab = 0
+    
+    var body: some View {
+        TabView(selection: $selectedTab) {
             TimerView()
                 .tabItem {
-                    Image(systemName: "timer")
+                    Image(selectedTab == 0 ? "timerfilled" : "timer")
+                        .renderingMode(.template)
                     Text("Timer")
                 }
+                .tag(0)
             
             TaskManagerView()
                 .tabItem {
-                    Image(systemName: "list.bullet")
+                    Image(selectedTab == 1 ? "stackfilled" : "stack")
+                        .renderingMode(.template)
                     Text("Tasks")
                 }
+                .tag(1)
         }
         .accentColor(.blue)
     }
@@ -110,7 +210,9 @@ struct TimerView: View {
                 .padding(.bottom, 8)
             }
             
-            // Main content - fills remaining space
+            Spacer() // Push content to center
+            
+            // Main content - centered vertically
             VStack(spacing: 24) {
                 // Current Task section (compact)
                 currentTaskSection
@@ -123,15 +225,17 @@ struct TimerView: View {
                     tapeMeasureTimeSelector
                         .padding(.horizontal, 24)
                 }
+                
+                // Control Buttons (right under timer/slider)
+                controlButtons
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.vertical, 24)
+            .padding(.horizontal, 24)
             
-            // Control Buttons (always at bottom)
-            controlButtons
-                .padding(.horizontal, 24)
-                .padding(.bottom, 32)
+            Spacer() // Push content to center (bottom spacer)
         }
+        .padding(.bottom, 20) // Small space from tab bar
         .sheet(isPresented: $showingTaskSelector) {
             TaskSelectorSheet(
                 availableTasks: availableTasks,
@@ -155,7 +259,7 @@ struct TimerView: View {
     
     private var breakSuggestionBanner: some View {
         HStack(spacing: 12) {
-            Image(systemName: "cup.and.saucer.fill")
+            Image(systemName: "cup.and.heat.waves")
                 .font(.system(size: 14))
                 .foregroundColor(.orange)
             
@@ -226,7 +330,7 @@ struct TimerView: View {
                 } else if isBreakSession {
                     VStack(spacing: 6) {
                         HStack(spacing: 8) {
-                            Image(systemName: "cup.and.saucer.fill")
+                            Image(systemName: "cup.and.heat.waves")
                                 .font(.system(size: 16))
                                 .foregroundColor(.orange)
                             
@@ -243,54 +347,47 @@ struct TimerView: View {
                     }
                 }
             } else {
-                // Show task selector when timer is not active - more compact
-                VStack(spacing: 10) {
-                    Text("Focus Task")
-                        .font(.custom("Geist", size: 14))
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                    
+                // Show task selector when timer is not active - compact tag style
+                HStack {
+                    Spacer()
                     Button(action: { showingTaskSelector = true }) {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 6) {
                             if let task = selectedTask {
-                                HStack(spacing: 8) {
-                                    if let tagColor = task.tagColor {
-                                        Circle()
-                                            .fill(colorFromString(tagColor))
-                                            .frame(width: 10, height: 10)
-                                    }
-                                    
-                                    Text(task.title)
-                                        .font(.custom("Geist", size: 16))
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
+                                if let tagColor = task.tagColor {
+                                    Circle()
+                                        .fill(colorFromString(tagColor))
+                                        .frame(width: 6, height: 6)
                                 }
+                                
+                                Text(task.title)
+                                    .font(.custom("Geist", size: 12))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
                             } else {
-                                Text("Choose a task")
-                                    .font(.custom("Geist", size: 16))
+                                Text("Choose task")
+                                    .font(.custom("Geist", size: 12))
                                     .fontWeight(.light)
                                     .foregroundColor(.secondary)
                             }
                             
-                            Spacer()
-                            
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 8, weight: .medium))
                                 .foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(.secondary.opacity(0.08))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(.secondary.opacity(0.2), lineWidth: 1)
+                                        .stroke(.secondary.opacity(0.15), lineWidth: 0.5)
                                 )
                         )
                     }
                     .buttonStyle(PlainButtonStyle())
+                    Spacer()
                 }
             }
         }
@@ -299,53 +396,39 @@ struct TimerView: View {
     
     private var timerDisplayWithProgress: some View {
         ZStack {
-            // Background circle with subtle shadow
+            // Main background circle - clean and minimal
             Circle()
-                .stroke(Color.secondary.opacity(0.15), lineWidth: 12)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 6)
                 .frame(width: 280, height: 280)
-                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 5)
             
-            // Progress circle with gradient
+            // Progress ring - cleaner design
             Circle()
                 .trim(from: 0, to: CGFloat(progress))
                 .stroke(
-                    LinearGradient(
-                        colors: isBreakSession ? 
-                            [Color.orange.opacity(0.8), Color.orange] : 
-                            [Color.blue.opacity(0.8), Color.blue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    isBreakSession ? Color.orange : Color.black,
+                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
                 )
                 .frame(width: 280, height: 280)
                 .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.8), value: progress)
-            
-            // Inner shadow circle for depth
-            Circle()
-                .fill(.clear)
-                .frame(width: 256, height: 256)
-                .overlay(
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [.white.opacity(0.1), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
+                .animation(.linear(duration: 0.5), value: progress)
             
             // Timer content
             VStack(spacing: 12) {
                 Text(timeString(from: timeRemaining))
                     .font(.custom("Geist", size: 52))
-                    .fontWeight(.ultraLight)
+                    .fontWeight(.thin)
                     .monospacedDigit()
-                    .foregroundColor(.primary)
-                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    .foregroundColor(.primary.opacity(0.6))
+                    .shadow(color: .black.opacity(0.05), radius: 1, x: 0, y: 0.5)
+                    .scaleEffect(isTimerRunning ? 1.02 : 1.0)
+                    .animation(.easeInOut(duration: 0.3), value: isTimerRunning)
+                    .onChange(of: timeRemaining) { _ in
+                        if isTimerRunning {
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                // Small pulse animation on each second
+                            }
+                        }
+                    }
                 
                 if isPaused {
                     HStack(spacing: 6) {
@@ -472,179 +555,212 @@ struct TimerView: View {
     private var controlButtons: some View {
         HStack(spacing: 24) {
             if !isTimerRunning && !isPaused {
-                // Large circular start button with modern design
+                // Smaller circular start button with black and white design
                 Button(action: startTimer) {
                     ZStack {
-                        // Outer circle with gradient border
+                        // Outer circle with black border
                         Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: isBreakSession ? 
-                                        [Color.orange.opacity(0.8), Color.orange] : 
-                                        [Color.blue.opacity(0.8), Color.blue],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 4
-                            )
-                            .frame(width: 120, height: 120)
-                            .shadow(color: (isBreakSession ? Color.orange : Color.blue).opacity(0.2), radius: 8, x: 0, y: 4)
+                            .stroke(Color.black, lineWidth: 2)
+                            .frame(width: 80, height: 80)
+                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                         
-                        // Inner filled circle with subtle gradient
+                        // Inner filled circle with white background
                         Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: isBreakSession ? 
-                                        [Color.orange.opacity(0.1), Color.orange.opacity(0.05)] : 
-                                        [Color.blue.opacity(0.1), Color.blue.opacity(0.05)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 112, height: 112)
+                            .fill(Color.white)
+                            .frame(width: 76, height: 76)
                         
-                        // Play icon with enhanced styling
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 36, weight: .medium))
-                            .foregroundColor(isBreakSession ? Color.orange : Color.blue)
-                            .offset(x: 4)
-                            .shadow(color: (isBreakSession ? Color.orange : Color.blue).opacity(0.3), radius: 2)
+                        // Play icon from assets
+                        Image("play")
+                            .renderingMode(.template)
+                            .foregroundColor(.black)
+                            .scaleEffect(1.2)
                     }
                 }
                 .disabled(!isBreakSession && selectedTask == nil && !availableTasks.isEmpty)
                 .opacity((!isBreakSession && selectedTask == nil && !availableTasks.isEmpty) ? 0.5 : 1.0)
-                .scaleEffect(isBreakSession ? 0.85 : 1.0)
+                .scaleEffect(isBreakSession ? 0.9 : 1.0)
                 .animation(.easeInOut(duration: 0.2), value: isBreakSession)
                 
             } else if isPaused {
-                // Resume Button with modern styling
-                Button(action: resumeTimer) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 18, weight: .medium))
-                        Text("Resume")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.medium)
+                // Break Button (only if not in break session)
+                if !isBreakSession {
+                    Button(action: startBreak) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 56, height: 56)
+                            
+                            Image(systemName: "cup.and.heat.waves")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(0.9)
+                        }
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 25)
-                            .fill(
-                                LinearGradient(
-                                    colors: isBreakSession ? 
-                                        [Color.orange, Color.orange.opacity(0.8)] : 
-                                        [Color.blue, Color.blue.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .shadow(color: (isBreakSession ? Color.orange : Color.blue).opacity(0.3), radius: 8, x: 0, y: 4)
-                    )
+                }
+                
+                // Resume Button with circular styling
+                Button(action: resumeTimer) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.black, lineWidth: 2)
+                            .frame(width: 80, height: 80)
+                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 76, height: 76)
+                        
+                        Image("play")
+                            .renderingMode(.template)
+                            .foregroundColor(.black)
+                            .scaleEffect(1.2)
+                    }
                 }
                 
                 // Stop Button (only if not in break)
                 if !isBreakSession {
                     Button(action: stopTimer) {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(16)
-                            .background(
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.red, Color.red.opacity(0.8)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .shadow(color: .red.opacity(0.3), radius: 6, x: 0, y: 3)
-                            )
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 56, height: 56)
+                            
+                            Image("stop")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(0.9)
+                        }
                     }
                 }
             } else {
-                // During active timer - modern button design
-                if !isBreakSession {
-                    // Coffee/Break Button
-                    Button(action: startBreak) {
-                        Image(systemName: "cup.and.saucer.fill")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(16)
-                            .background(
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.orange, Color.orange.opacity(0.8)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .shadow(color: .orange.opacity(0.3), radius: 6, x: 0, y: 3)
-                            )
-                    }
-                }
-                
-                // Pause Button (bigger with modern styling)
-                Button(action: pauseTimer) {
-                    Image(systemName: "pause.fill")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(20)
-                        .background(
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.gray, Color.gray.opacity(0.8)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .shadow(color: .gray.opacity(0.3), radius: 8, x: 0, y: 4)
-                        )
-                }
-                
+                // During active timer - different layouts for break vs focus
                 if isBreakSession {
-                    // End Break Early Button with modern styling
+                    // Break Session: 3 buttons [Timer] [Pause] [Stop]
+                    
+                    // Return to Timer Button (left)
                     Button(action: endBreakEarly) {
-                        Text("End Break")
-                            .font(.custom("Geist", size: 15))
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.orange.opacity(0.9), Color.orange.opacity(0.7)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .shadow(color: .orange.opacity(0.2), radius: 4, x: 0, y: 2)
-                            )
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 56, height: 56)
+                            
+                            Image("timer")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(0.9)
+                        }
+                    }
+                    
+                    // Pause Button (center)
+                    Button(action: pauseTimer) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 80, height: 80)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 76, height: 76)
+                            
+                            Image("pause")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(1.2)
+                        }
+                    }
+                    
+                    // End Break Session Button (right)
+                    Button(action: stopTimer) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 56, height: 56)
+                            
+                            Image("stop")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(0.9)
+                        }
                     }
                 } else {
-                    // Stop Button for focus sessions
+                    // Focus Session: [Break] [Pause] [Stop]
+                    
+                    // Coffee/Break Button (left)
+                    Button(action: startBreak) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 56, height: 56)
+                            
+                            Image(systemName: "cup.and.heat.waves")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(0.9)
+                        }
+                    }
+                    
+                    // Pause Button (center)
+                    Button(action: pauseTimer) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 80, height: 80)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 76, height: 76)
+                            
+                            Image("pause")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(1.2)
+                        }
+                    }
+                    
+                    // Stop Button (right)
                     Button(action: stopTimer) {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(16)
-                            .background(
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.red, Color.red.opacity(0.8)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .shadow(color: .red.opacity(0.3), radius: 6, x: 0, y: 3)
-                            )
+                        ZStack {
+                            Circle()
+                                .stroke(Color.black, lineWidth: 2)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 56, height: 56)
+                            
+                            Image("stop")
+                                .renderingMode(.template)
+                                .foregroundColor(.black)
+                                .scaleEffect(0.9)
+                        }
                     }
                 }
             }
