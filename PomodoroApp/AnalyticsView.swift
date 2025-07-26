@@ -37,6 +37,30 @@ struct AnalyticsView: View {
         }
     }
     
+    // Current date string based on selected period
+    private var currentDateString: String {
+        let formatter = DateFormatter()
+        
+        switch selectedPeriod {
+        case .weekly:
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
+            let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? currentDate
+            
+            formatter.dateFormat = "MMM d"
+            let startString = formatter.string(from: weekStart)
+            let endString = formatter.string(from: weekEnd)
+            return "\(startString) - \(endString)"
+            
+        case .monthly:
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: currentDate)
+            
+        case .yearly:
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: currentDate)
+        }
+    }
+    
     // Filter sessions based on selected period
     private var filteredSessions: [FocusSession] {
         let completedFocusSessions = focusSessions.filter { 
@@ -70,20 +94,20 @@ struct AnalyticsView: View {
         let calendar = Calendar.current
         var data: [HeatmapDay] = []
         
-        let endDate = Date()
+        let endDate = currentDate
         let startDate: Date
         
         switch selectedPeriod {
         case .weekly:
-            // Show current week (always 7 days starting from week start)
-            let weekStart = calendar.dateInterval(of: .weekOfYear, for: endDate)?.start ?? endDate
+            // Show selected week (always 7 days starting from week start)
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
             startDate = weekStart
         case .monthly:
-            // Show current month (calendar month view)
-            startDate = calendar.dateInterval(of: .month, for: endDate)?.start ?? endDate
+            // Show selected month (calendar month view)
+            startDate = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
         case .yearly:
-            // Show current year from January to December
-            startDate = calendar.dateInterval(of: .year, for: endDate)?.start ?? endDate
+            // Show selected year from January to December
+            startDate = calendar.dateInterval(of: .year, for: currentDate)?.start ?? currentDate
         }
         
         // Group sessions by day
@@ -112,7 +136,7 @@ struct AnalyticsView: View {
                 ))
             }
         case .monthly:
-            let finalDate = calendar.dateInterval(of: .month, for: endDate)?.end ?? endDate
+            let finalDate = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
             while current <= finalDate {
                 let dayStart = calendar.startOfDay(for: current)
                 let sessionsForDay = sessionsByDay[dayStart] ?? []
@@ -127,7 +151,7 @@ struct AnalyticsView: View {
                 current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
             }
         case .yearly:
-            let yearEnd = calendar.dateInterval(of: .year, for: endDate)?.end ?? endDate
+            let yearEnd = calendar.dateInterval(of: .year, for: currentDate)?.end ?? currentDate
             while current <= yearEnd {
                 let dayStart = calendar.startOfDay(for: current)
                 let sessionsForDay = sessionsByDay[dayStart] ?? []
@@ -172,8 +196,8 @@ struct AnalyticsView: View {
         
         switch selectedPeriod {
         case .weekly:
-            // Show daily data for current week
-            let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+            // Show daily data for selected week
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
             for i in 0..<7 {
                 let date = calendar.date(byAdding: .day, value: i, to: weekStart) ?? weekStart
                 let formatter = DateFormatter()
@@ -201,9 +225,9 @@ struct AnalyticsView: View {
             }
             
         case .monthly:
-            // Show weekly data for current month
-            let monthStart = calendar.dateInterval(of: .month, for: Date())?.start ?? Date()
-            let monthEnd = calendar.dateInterval(of: .month, for: Date())?.end ?? Date()
+            // Show weekly data for selected month
+            let monthStart = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
+            let monthEnd = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
             
             var weekStart = calendar.dateInterval(of: .weekOfYear, for: monthStart)?.start ?? monthStart
             var weekNumber = 1
@@ -232,8 +256,8 @@ struct AnalyticsView: View {
             }
             
         case .yearly:
-            // Show monthly data for current year
-            let yearStart = calendar.dateInterval(of: .year, for: Date())?.start ?? Date()
+            // Show monthly data for selected year
+            let yearStart = calendar.dateInterval(of: .year, for: currentDate)?.start ?? currentDate
             for i in 0..<12 {
                 let monthStart = calendar.date(byAdding: .month, value: i, to: yearStart) ?? yearStart
                 let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
@@ -266,15 +290,30 @@ struct AnalyticsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 32) {
-                // Header with period selector
-                VStack(spacing: 24) {
+                // Header with date navigation and period selector
+                VStack(spacing: 16) {
+                    // Date navigation
                     HStack {
-                        Text("Analytics")
-                            .font(.custom("Geist", size: 32))
-                            .fontWeight(.bold)
+                        Button(action: navigatePrevious) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.primary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text(currentDateString)
+                            .font(.custom("Geist", size: 20))
+                            .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
                         Spacer()
+                        
+                        Button(action: navigateNext) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.primary)
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
@@ -705,6 +744,29 @@ struct AnalyticsView: View {
         case "orange": return .orange
         case "red": return .red
         default: return .blue
+        }
+    }
+    
+    // Navigation methods
+    private func navigatePrevious() {
+        switch selectedPeriod {
+        case .weekly:
+            currentDate = calendar.date(byAdding: .weekOfYear, value: -1, to: currentDate) ?? currentDate
+        case .monthly:
+            currentDate = calendar.date(byAdding: .month, value: -1, to: currentDate) ?? currentDate
+        case .yearly:
+            currentDate = calendar.date(byAdding: .year, value: -1, to: currentDate) ?? currentDate
+        }
+    }
+    
+    private func navigateNext() {
+        switch selectedPeriod {
+        case .weekly:
+            currentDate = calendar.date(byAdding: .weekOfYear, value: 1, to: currentDate) ?? currentDate
+        case .monthly:
+            currentDate = calendar.date(byAdding: .month, value: 1, to: currentDate) ?? currentDate
+        case .yearly:
+            currentDate = calendar.date(byAdding: .year, value: 1, to: currentDate) ?? currentDate
         }
     }
     
