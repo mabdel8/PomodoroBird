@@ -289,7 +289,7 @@ struct AnalyticsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
+            VStack(spacing: 20) {
                 // Header with date navigation and period selector
                 VStack(spacing: 16) {
                     // Date navigation
@@ -410,30 +410,36 @@ struct AnalyticsView: View {
     }
     
     private var statsContainerWithHistoryButton: some View {
-        ZStack(alignment: .topTrailing) {
-            statsContainer
-            
-            Button(action: {
-                showingSessionHistory = true
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 14, weight: .medium))
-                    
-                    Text("History")
-                        .font(.custom("Geist", size: 14))
-                        .fontWeight(.medium)
+        VStack(spacing: 10) {
+            // History button above container
+            HStack {
+                Spacer()
+                
+                Button(action: {
+                    showingSessionHistory = true
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 14, weight: .medium))
+                        
+                        Text("History")
+                            .font(.custom("Geist", size: 14))
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.blue.opacity(0.1))
+                    )
                 }
-                .foregroundColor(.blue)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.blue.opacity(0.1))
-                )
+                .buttonStyle(PlainButtonStyle())
             }
-            .buttonStyle(PlainButtonStyle())
-            .offset(x: -20, y: 20) // Position at top right of container
+            .padding(.horizontal, 24)
+            
+            // Stats container
+            statsContainer
         }
     }
     
