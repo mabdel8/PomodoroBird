@@ -19,6 +19,7 @@ struct AnalyticsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \FocusSession.createdAt, order: .reverse) private var focusSessions: [FocusSession]
     @Query(sort: \FocusTag.name) private var tags: [FocusTag]
+    @Query(sort: \CollectedBird.collectedAt, order: .reverse) private var collectedBirds: [CollectedBird]
     
     @State private var selectedPeriod: TimePeriod = .weekly
     @State private var currentDate = Date()
@@ -333,8 +334,10 @@ struct AnalyticsView: View {
                 // Bar Chart Section
                 barChartContainer
                 
-                // Bird Unlocked Section
-                birdUnlockedContainer
+                // Bird Collection Section
+                if !collectedBirds.isEmpty {
+                    birdCollectionContainer
+                }
                 
                 Spacer(minLength: 100)
             }
@@ -727,36 +730,67 @@ struct AnalyticsView: View {
         .padding(.horizontal, 24)
     }
     
-    private var birdUnlockedContainer: some View {
-        HStack {
-            HStack(spacing: 12) {
-                Image(systemName: "bird.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.primary)
+    private var birdCollectionContainer: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                HStack(spacing: 12) {
+                    Image(systemName: "bird.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.primary)
+                    
+                    Text("Bird Collection")
+                        .font(.custom("Geist", size: 20))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
                 
-                Text("Bird Unlocked")
-                    .font(.custom("Geist", size: 18))
+                Spacer()
+                
+                Text("\(collectedBirds.count) / \(BirdType.allCases.count)")
+                    .font(.custom("Geist", size: 16))
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.secondary)
             }
             
-            Spacer()
+            // Bird grid
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 16) {
+                ForEach(BirdType.allCases, id: \.self) { birdType in
+                    let isCollected = collectedBirds.contains { $0.birdType == birdType }
+                    BirdCollectionItem(birdType: birdType, isCollected: isCollected)
+                }
+            }
             
-            HStack(spacing: 12) {
-                Image("robin") // Assuming you have a robin asset
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
-                
-                Text("Robin")
-                    .font(.custom("Geist", size: 18))
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+            // Recent bird (if any)
+            if let recentBird = collectedBirds.first {
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14))
+                        .foregroundColor(.yellow)
+                    
+                    Text("Latest:")
+                        .font(.custom("Geist", size: 14))
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    
+                    if let birdType = recentBird.birdType {
+                        Image(birdType.birdImageName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                        
+                        Text(birdType.displayName)
+                            .font(.custom("Geist", size: 14))
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    
+                    Spacer()
+                    
+                    Text(timeAgo(from: recentBird.collectedAt))
+                        .font(.custom("Geist", size: 12))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 8)
             }
         }
         .padding(20)
@@ -1020,9 +1054,54 @@ struct AnalyticsView: View {
         
         return weeks
     }
+    
+    private func timeAgo(from date: Date) -> String {
+        let now = Date()
+        let components = Calendar.current.dateComponents([.minute, .hour, .day], from: date, to: now)
+        
+        if let days = components.day, days > 0 {
+            return "\(days)d ago"
+        } else if let hours = components.hour, hours > 0 {
+            return "\(hours)h ago"
+        } else if let minutes = components.minute, minutes > 0 {
+            return "\(minutes)m ago"
+        } else {
+            return "now"
+        }
+    }
 }
 
-
+struct BirdCollectionItem: View {
+    let birdType: BirdType
+    let isCollected: Bool
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isCollected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
+                    .frame(width: 64, height: 64)
+                
+                if isCollected {
+                    Image(birdType.birdImageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 48, height: 48)
+                } else {
+                    Image(systemName: "questionmark")
+                        .font(.system(size: 24))
+                        .foregroundColor(.gray)
+                }
+            }
+            
+            Text(isCollected ? birdType.displayName : "???")
+                .font(.custom("Geist", size: 10))
+                .fontWeight(.medium)
+                .foregroundColor(isCollected ? .primary : .secondary)
+                .lineLimit(1)
+        }
+    }
+}
 
 // MARK: - Data Models
 
@@ -1149,5 +1228,5 @@ struct SessionRowView: View {
 
 #Preview {
     AnalyticsView()
-        .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self], inMemory: true)
+        .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
 } 

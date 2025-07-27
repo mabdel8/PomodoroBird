@@ -8,6 +8,38 @@
 import Foundation
 import SwiftData
 
+enum BirdType: String, CaseIterable, Codable {
+    case bluebird = "bluebird"
+    case cardinal = "cardinal" 
+    case dragon = "dragon"
+    case owl = "owl"
+    case peacock = "peacock"
+    case phoenix = "phoenix"
+    case robin = "robin"
+    case sparrow = "sparrow"
+    
+    var displayName: String {
+        switch self {
+        case .bluebird: return "Blue Bird"
+        case .cardinal: return "Cardinal"
+        case .dragon: return "Dragon"
+        case .owl: return "Owl"
+        case .peacock: return "Peacock"
+        case .phoenix: return "Phoenix"
+        case .robin: return "Robin"
+        case .sparrow: return "Sparrow"
+        }
+    }
+    
+    var eggImageName: String {
+        return rawValue + "Egg"
+    }
+    
+    var birdImageName: String {
+        return rawValue
+    }
+}
+
 @Model
 final class FocusTag {
     var id: UUID
@@ -125,5 +157,24 @@ final class AppTimerState {
         self.timeRemaining = 1500
         self.selectedDuration = 1500
         self.isBreakSession = false
+    }
+}
+
+@Model
+final class CollectedBird {
+    var id: UUID
+    var birdTypeRawValue: String // Store the raw value of BirdType enum
+    var collectedAt: Date
+    var fromSessionId: UUID? // Reference to the focus session that earned this bird
+    
+    var birdType: BirdType? {
+        return BirdType(rawValue: birdTypeRawValue)
+    }
+    
+    init(birdType: BirdType, fromSessionId: UUID? = nil) {
+        self.id = UUID()
+        self.birdTypeRawValue = birdType.rawValue
+        self.collectedAt = Date()
+        self.fromSessionId = fromSessionId
     }
 }
