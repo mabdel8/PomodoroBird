@@ -150,6 +150,9 @@ struct TimerView: View {
     // Live Activity Manager (iOS 16.1+)
     @State private var liveActivityManager: LiveActivityManager?
     
+    // Notification Manager
+    @StateObject private var notificationManager = NotificationManager.shared
+    
     @State private var selectedTask: Task?
     @State private var selectedDuration: Double = 25.0 // in minutes
     @State private var timeRemaining: TimeInterval = 1500 // 25 minutes in seconds
@@ -294,6 +297,7 @@ struct TimerView: View {
         .sheet(isPresented: $showingSettings) {
             TimerSettingsView(
                 selectedDuration: $selectedDuration,
+                notificationManager: notificationManager,
                 onDurationChange: { newDuration in
                     selectedDuration = newDuration
                     if !isTimerRunning {
@@ -964,7 +968,12 @@ struct TimerView: View {
     }
     
     private func startTimer() {
-        let sessionDuration = Int(isBreakSession ? 300 : selectedDuration * 60) // 5 min break or custom focus
+        let sessionDuration: Int
+        if isBreakSession {
+            sessionDuration = Int(notificationManager.getEffectiveBreakDuration())
+        } else {
+            sessionDuration = Int(notificationManager.isTestModeEnabled ? notificationManager.getEffectiveFocusDuration() : selectedDuration * 60)
+        }
         
         // Reset session work time when starting a new focus session (not break)
         if !isBreakSession && currentSession == nil {
@@ -1022,12 +1031,15 @@ struct TimerView: View {
         currentSession = session
         modelContext.insert(session)
         
-        if isBreakSession && timeRemaining != 300 {
-            timeRemaining = 300 // 5 minutes
-            totalTime = 300
-        } else if !isBreakSession && timeRemaining != selectedDuration * 60 {
-            timeRemaining = selectedDuration * 60
-            totalTime = selectedDuration * 60
+        let expectedBreakDuration = notificationManager.getEffectiveBreakDuration()
+        let expectedFocusDuration = notificationManager.isTestModeEnabled ? notificationManager.getEffectiveFocusDuration() : selectedDuration * 60
+        
+        if isBreakSession && timeRemaining != expectedBreakDuration {
+            timeRemaining = expectedBreakDuration
+            totalTime = expectedBreakDuration
+        } else if !isBreakSession && timeRemaining != expectedFocusDuration {
+            timeRemaining = expectedFocusDuration
+            totalTime = expectedFocusDuration
         }
         
         // Start timer
@@ -1102,16 +1114,18 @@ struct TimerView: View {
         
         // Start break session automatically
         isBreakSession = true
-        timeRemaining = 300 // 5 minutes
-        totalTime = 300
+        let breakDuration = notificationManager.getEffectiveBreakDuration()
+        timeRemaining = breakDuration
+        totalTime = breakDuration
         startTimer() // Automatically start the break timer
     }
     
     private func startSuggestedBreak() {
         // Start a suggested break
         isBreakSession = true
-        timeRemaining = 300 // 5 minutes
-        totalTime = 300
+        let breakDuration = notificationManager.getEffectiveBreakDuration()
+        timeRemaining = breakDuration
+        totalTime = breakDuration
         startTimer()
     }
     
@@ -1482,6 +1496,11 @@ struct TimerView: View {
         isTimerRunning = false
         isPaused = false
         
+        // Trigger alarm notification
+        let sessionTypeString = isBreakSession ? "break" : "focus"
+        let taskName = isBreakSession ? nil : selectedTask?.title
+        notificationManager.triggerTimerCompletionAlert(sessionType: sessionTypeString, taskName: taskName)
+        
         // End Live Activity if available (marked as completed)
         if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
             liveActivityManager.endCurrentActivity(completed: true)
@@ -1842,6 +1861,7 @@ struct CompletionPopupView: View {
 
 struct TimerSettingsView: View {
     @Binding var selectedDuration: Double
+    @ObservedObject var notificationManager: NotificationManager
     let onDurationChange: (Double) -> Void
     @Environment(\.dismiss) private var dismiss
     
@@ -1849,59 +1869,205 @@ struct TimerSettingsView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 32) {
-                VStack(spacing: 16) {
-                    Text("Custom Timer Duration")
-                        .font(.custom("Geist", size: 20))
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                    
-                    Text("Select a duration to test the timer")
-                        .font(.custom("Geist", size: 14))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 16)
-                
-                // Quick duration buttons
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
-                    ForEach(quickDurations, id: \.self) { duration in
-                        Button(action: {
-                            selectedDuration = Double(duration)
-                            onDurationChange(Double(duration))
-                        }) {
-                            VStack(spacing: 4) {
-                                Text("\(duration)")
-                                    .font(.custom("Geist", size: 18))
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(selectedDuration == Double(duration) ? .white : .primary)
-                                
-                                Text(duration == 1 ? "min" : "min")
-                                    .font(.custom("Geist", size: 12))
-                                    .fontWeight(.medium)
-                                    .foregroundColor(selectedDuration == Double(duration) ? .white.opacity(0.8) : .secondary)
-                            }
-                            .frame(height: 60)
-                            .frame(maxWidth: .infinity)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedDuration == Double(duration) ? Color.blue : Color.gray.opacity(0.1))
-                                    .stroke(selectedDuration == Double(duration) ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
-                            )
+            ScrollView {
+                VStack(spacing: 32) {
+                    // Timer Duration Section
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Timer Duration")
+                                .font(.custom("Geist", size: 20))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text("Select a duration for focus sessions")
+                                .font(.custom("Geist", size: 14))
+                                .foregroundColor(.secondary)
                         }
-                        .scaleEffect(selectedDuration == Double(duration) ? 1.05 : 1.0)
-                        .animation(.easeInOut(duration: 0.2), value: selectedDuration)
+                        
+                        // Quick duration buttons
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
+                            ForEach(quickDurations, id: \.self) { duration in
+                                Button(action: {
+                                    selectedDuration = Double(duration)
+                                    onDurationChange(Double(duration))
+                                }) {
+                                    VStack(spacing: 4) {
+                                        Text("\(duration)")
+                                            .font(.custom("Geist", size: 18))
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(selectedDuration == Double(duration) ? .white : .primary)
+                                        
+                                        Text("min")
+                                            .font(.custom("Geist", size: 12))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(selectedDuration == Double(duration) ? .white.opacity(0.8) : .secondary)
+                                    }
+                                    .frame(height: 60)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(selectedDuration == Double(duration) ? Color.blue : Color.gray.opacity(0.1))
+                                            .stroke(selectedDuration == Double(duration) ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
+                                .scaleEffect(selectedDuration == Double(duration) ? 1.05 : 1.0)
+                                .animation(.easeInOut(duration: 0.2), value: selectedDuration)
+                            }
+                        }
                     }
+                    
+                    Divider()
+                    
+                    // Alarm Settings Section
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Alarm Settings")
+                                .font(.custom("Geist", size: 20))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text("Customize how you're notified when timers complete")
+                                .font(.custom("Geist", size: 14))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        VStack(spacing: 16) {
+                            // Sound Alert Toggle
+                            SettingsToggleRow(
+                                title: "Sound Alert",
+                                description: "Play sound when timer completes",
+                                isOn: $notificationManager.enableSoundAlert
+                            )
+                            
+                            // Haptic Feedback Toggle
+                            SettingsToggleRow(
+                                title: "Haptic Feedback",
+                                description: "Vibrate when timer completes",
+                                isOn: $notificationManager.enableHapticFeedback
+                            )
+                            
+                            // Notifications Toggle
+                            SettingsToggleRow(
+                                title: "Notifications",
+                                description: "Show notification when app is backgrounded",
+                                isOn: $notificationManager.enableNotifications
+                            )
+                            
+                            // Alarm Sound Selection
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Alarm Sound")
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                
+                                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 12) {
+                                    ForEach(NotificationManager.AlarmSound.allCases, id: \.self) { sound in
+                                        Button(action: {
+                                            notificationManager.selectedAlarmSound = sound
+                                            notificationManager.testAlarmSound()
+                                            notificationManager.saveSettings()
+                                        }) {
+                                            Text(sound.displayName)
+                                                .font(.custom("Geist", size: 14))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(notificationManager.selectedAlarmSound == sound ? .white : .primary)
+                                                .frame(height: 44)
+                                                .frame(maxWidth: .infinity)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(notificationManager.selectedAlarmSound == sound ? Color.blue : Color.gray.opacity(0.1))
+                                                        .stroke(notificationManager.selectedAlarmSound == sound ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                                                )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Testing Section
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Testing Mode")
+                                .font(.custom("Geist", size: 20))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text("Enable short durations for testing timer functionality")
+                                .font(.custom("Geist", size: 14))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        VStack(spacing: 16) {
+                            // Test Mode Toggle
+                            SettingsToggleRow(
+                                title: "Enable Test Mode",
+                                description: "Use seconds instead of minutes for quick testing",
+                                isOn: $notificationManager.isTestModeEnabled
+                            ) {
+                                notificationManager.saveSettings()
+                            }
+                            
+                            if notificationManager.isTestModeEnabled {
+                                VStack(spacing: 16) {
+                                    // Test Focus Duration
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Test Focus Duration")
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        HStack(spacing: 12) {
+                                            Stepper(value: $notificationManager.testFocusDuration, in: 3...60, step: 1) {
+                                                Text("\(notificationManager.testFocusDuration) seconds")
+                                                    .font(.custom("Geist", size: 14))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .onChange(of: notificationManager.testFocusDuration) { _, _ in
+                                                notificationManager.saveSettings()
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Test Break Duration
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Test Break Duration")
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        HStack(spacing: 12) {
+                                            Stepper(value: $notificationManager.testBreakDuration, in: 3...30, step: 1) {
+                                                Text("\(notificationManager.testBreakDuration) seconds")
+                                                    .font(.custom("Geist", size: 14))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .onChange(of: notificationManager.testBreakDuration) { _, _ in
+                                                notificationManager.saveSettings()
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(.leading, 16)
+                            }
+                        }
+                    }
+                    
+                    Spacer(minLength: 20)
                 }
                 .padding(.horizontal, 24)
-                
-                Spacer()
+                .padding(.top, 16)
             }
-            .navigationTitle("Timer Settings")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
-            .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
+                        notificationManager.saveSettings()
                         dismiss()
                     }
                     .font(.custom("Geist", size: 16))
@@ -1909,7 +2075,48 @@ struct TimerSettingsView: View {
                     .foregroundColor(.blue)
                 }
             }
+            .onAppear {
+                notificationManager.checkNotificationPermission()
+            }
         }
+    }
+}
+
+struct SettingsToggleRow: View {
+    let title: String
+    let description: String
+    @Binding var isOn: Bool
+    let onToggle: (() -> Void)?
+    
+    init(title: String, description: String, isOn: Binding<Bool>, onToggle: (() -> Void)? = nil) {
+        self.title = title
+        self.description = description
+        self._isOn = isOn
+        self.onToggle = onToggle
+    }
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text(description)
+                    .font(.custom("Geist", size: 12))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: $isOn)
+                .onChange(of: isOn) { _, _ in
+                    onToggle?()
+                }
+        }
+        .padding(.vertical, 8)
     }
 }
 
