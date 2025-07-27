@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import Foundation
+import ActivityKit
+import BackgroundTasks
 
 // Custom SVG-inspired icons
 struct CustomPlayIcon: View {
@@ -107,7 +110,7 @@ struct ContentView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            TimerView()
+            TimerView(selectedTab: $selectedTab)
                 .tabItem {
                     Image(selectedTab == 0 ? "timerfilled" : "timer")
                         .renderingMode(.template)
@@ -142,6 +145,13 @@ struct TimerView: View {
     @Query(filter: #Predicate<Task> { !$0.isCompleted }, sort: \Task.createdAt, order: .reverse) private var availableTasks: [Task]
     @Query private var timerStates: [AppTimerState]
     @Query(sort: \FocusSession.createdAt, order: .reverse) private var recentSessions: [FocusSession]
+    @Binding var selectedTab: Int
+    
+    // Live Activity Manager (iOS 16.1+)
+    @State private var liveActivityManager: LiveActivityManager?
+    
+    // Notification Manager
+    @StateObject private var notificationManager = NotificationManager.shared
     
     @State private var selectedTask: Task?
     @State private var selectedDuration: Double = 25.0 // in minutes
@@ -160,6 +170,23 @@ struct TimerView: View {
     @State private var pausedFocusTimeRemaining: TimeInterval = 0
     @State private var pausedFocusTotalTime: TimeInterval = 0
     @State private var pausedFocusSession: FocusSession?
+    @State private var showingCompletionDialog = false
+    @State private var sessionToComplete: FocusSession?
+    @State private var totalBreakTime: Int = 0 // Track break time in minutes for current session
+    @State private var sessionWorkTime: Int = 0 // Track work time for current session in minutes
+    @State private var showingSettings = false
+    @State private var showingTaskCreation = false
+    @State private var newTaskName = ""
+    @State private var selectedTagForNewTask: FocusTag?
+    @State private var unassignedSession: FocusSession?
+    @State private var showingQuickTaskCreation = false
+    @State private var quickTaskName = ""
+    @State private var selectedTagForQuickTask: FocusTag?
+    
+    // Background timing state
+    @State private var sessionStartTime: Date?
+    @State private var sessionEndTime: Date?
+    @State private var lastUpdateTime: Date = Date()
     
     var timerState: AppTimerState? {
         timerStates.first
@@ -178,18 +205,30 @@ struct TimerView: View {
     }
     
     var shouldSuggestBreak: Bool {
-        workTimeToday > 0 && workTimeToday % 25 == 0 && !isBreakSession && !isTimerRunning
+        false // Remove auto break suggestions
     }
     
     var nextBreakIn: String? {
-        guard !isBreakSession && workTimeToday > 0 else { return nil }
-        let minutesUntilBreak = 25 - (workTimeToday % 25)
-        if minutesUntilBreak == 25 { return nil }
-        return "Break in \(minutesUntilBreak) min"
+        // No automatic break suggestions - removed per requirements
+        return nil
     }
     
     var body: some View {
         VStack(spacing: 0) {
+            // Top navigation area
+            HStack {
+                Spacer()
+                
+                Button(action: { showingSettings = true }) {
+                    Image("setting")
+                        .renderingMode(.template)
+                        .foregroundColor(.primary)
+                        .font(.system(size: 20))
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            
             // Top notification area (compact)
             if shouldSuggestBreak || nextBreakIn != nil {
                 VStack(spacing: 12) {
@@ -260,9 +299,70 @@ struct TimerView: View {
                 }
             )
         }
+        .sheet(isPresented: $showingSettings) {
+            TimerSettingsView(
+                selectedDuration: $selectedDuration,
+                notificationManager: notificationManager,
+                onDurationChange: { newDuration in
+                    selectedDuration = newDuration
+                    if !isTimerRunning {
+                        timeRemaining = newDuration * 60
+                        totalTime = newDuration * 60
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showingTaskCreation) {
+            TaskCreationSheet(
+                taskName: $newTaskName,
+                selectedTag: $selectedTagForNewTask,
+                tags: tags,
+                sessionDuration: unassignedSession?.actualDuration ?? 0,
+                onSave: createTaskForSession,
+                onSkip: skipTaskCreation
+            )
+        }
+        .sheet(isPresented: $showingQuickTaskCreation) {
+            QuickTaskCreationSheet(
+                taskName: $quickTaskName,
+                selectedTag: $selectedTagForQuickTask,
+                tags: tags,
+                onSave: createQuickTaskAndStartTimer,
+                onCancel: cancelQuickTaskCreation
+            )
+        }
+        .overlay {
+            if showingCompletionDialog {
+                CompletionPopupView(
+                    session: sessionToComplete,
+                    onComplete: confirmSessionCompletion,
+                    onCancel: cancelSessionCompletion
+                )
+            }
+        }
         .onAppear {
             setupInitialData()
             calculateWorkTimeToday()
+            
+            // Initialize Live Activity Manager if available
+            if #available(iOS 16.1, *) {
+                liveActivityManager = LiveActivityManager()
+            }
+        }
+        .onChange(of: selectedTab) { oldValue, newValue in
+            // If user switches to timer tab while on break, return to focus timer and continue
+            if newValue == 0 && isBreakSession {
+                endBreakEarly()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openTimerTab)) { _ in
+            selectedTab = 0 // Switch to timer tab
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Sync timer when app returns from background
+            if isTimerRunning && !isPaused {
+                syncTimerFromBackground()
+            }
         }
     }
     
@@ -565,7 +665,7 @@ struct TimerView: View {
         HStack(spacing: 24) {
             if !isTimerRunning && !isPaused {
                 // Smaller circular start button with black and white design
-                Button(action: startTimer) {
+                Button(action: handleStartTimer) {
                     ZStack {
                         // Outer circle with black border
                         Circle()
@@ -585,8 +685,6 @@ struct TimerView: View {
                             .scaleEffect(1.2)
                     }
                 }
-                .disabled(!isBreakSession && selectedTask == nil && !availableTasks.isEmpty)
-                .opacity((!isBreakSession && selectedTask == nil && !availableTasks.isEmpty) ? 0.5 : 1.0)
                 .scaleEffect(isBreakSession ? 0.9 : 1.0)
                 .animation(.easeInOut(duration: 0.2), value: isBreakSession)
                 
@@ -777,6 +875,61 @@ struct TimerView: View {
         .frame(maxWidth: .infinity)
     }
     
+    // MARK: - Background Timer Calculation
+    
+    private func updateTimerWithBackgroundCalculation() {
+        guard let sessionStartTime = sessionStartTime,
+              let sessionEndTime = sessionEndTime,
+              isTimerRunning && !isPaused else { return }
+        
+        let now = Date()
+        let actualElapsedTime = now.timeIntervalSince(sessionStartTime)
+        let expectedTotalTime = sessionEndTime.timeIntervalSince(sessionStartTime)
+        
+        // Calculate remaining time based on actual elapsed time
+        let calculatedRemainingTime = max(0, expectedTotalTime - actualElapsedTime)
+        
+        // Update timeRemaining if there's a significant difference (more than 2 seconds)
+        // This accounts for background execution and timer drift
+        if abs(timeRemaining - calculatedRemainingTime) > 2.0 {
+            timeRemaining = calculatedRemainingTime
+            print("🔄 Background sync: Adjusted timer to \(timeString(from: timeRemaining))")
+        } else {
+            // Normal operation - just decrement by 1 second
+            timeRemaining = max(0, timeRemaining - 1)
+        }
+        
+        lastUpdateTime = now
+    }
+    
+    private func syncTimerFromBackground() {
+        guard let sessionStartTime = sessionStartTime,
+              let sessionEndTime = sessionEndTime else { return }
+        
+        let now = Date()
+        let actualElapsedTime = now.timeIntervalSince(sessionStartTime)
+        let expectedTotalTime = sessionEndTime.timeIntervalSince(sessionStartTime)
+        
+        // Calculate remaining time based on actual elapsed time
+        let calculatedRemainingTime = max(0, expectedTotalTime - actualElapsedTime)
+        
+        // Always sync when returning from background
+        timeRemaining = calculatedRemainingTime
+        lastUpdateTime = now
+        
+        print("🔄 Foreground sync: Timer set to \(timeString(from: timeRemaining))")
+        
+        // Update Live Activity with accurate timing
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.updateActivity(remainingTime: timeRemaining)
+        }
+        
+        // Check if timer should complete
+        if timeRemaining <= 0 {
+            completeSession()
+        }
+    }
+    
     // MARK: - Helper Methods
     
     private func setupInitialData() {
@@ -791,9 +944,21 @@ struct TimerView: View {
             modelContext.insert(newTimerState)
         }
         
-        // Create default "Working" task if no tasks exist
-        if availableTasks.isEmpty {
-            createDefaultWorkingTask()
+        // Create default "Working" task if no "Working" task exists (completed or incomplete)
+        do {
+            var descriptor = FetchDescriptor<Task>()
+            descriptor.predicate = #Predicate<Task> { $0.title == "Working" }
+            let existingWorkingTasks = try modelContext.fetch(descriptor)
+            
+            if existingWorkingTasks.isEmpty {
+                createDefaultWorkingTask()
+            }
+        } catch {
+            print("Error checking for existing Working tasks: \(error)")
+            // Fallback to old behavior
+            if availableTasks.isEmpty {
+                createDefaultWorkingTask()
+            }
         }
         
         // Set to last used task or first available task
@@ -869,30 +1034,122 @@ struct TimerView: View {
     }
     
     private func startTimer() {
-        let sessionDuration = Int(isBreakSession ? 300 : selectedDuration * 60) // 5 min break or custom focus
+        let sessionDuration: Int
+        if isBreakSession {
+            sessionDuration = Int(notificationManager.getEffectiveBreakDuration())
+        } else {
+            sessionDuration = Int(notificationManager.isTestModeEnabled ? notificationManager.getEffectiveFocusDuration() : selectedDuration * 60)
+        }
+        
+        // Reset session work time when starting a new focus session (not break)
+        if !isBreakSession && currentSession == nil {
+            sessionWorkTime = 0
+        }
+        
+        // Set session timing for background calculation
+        sessionStartTime = Date()
+        sessionEndTime = Date().addingTimeInterval(TimeInterval(sessionDuration))
+        lastUpdateTime = Date()
+        
+        // For focus sessions, ensure we have a task (use default "Working" if none selected)
+        let taskForSession: Task?
+        
+        if isBreakSession {
+            taskForSession = nil
+        } else if let selectedTask = selectedTask {
+            taskForSession = selectedTask
+        } else {
+            // Find existing "Working" task (including completed ones) or create new one
+            do {
+                var descriptor = FetchDescriptor<Task>()
+                descriptor.predicate = #Predicate<Task> { $0.title == "Working" }
+                let existingTasks = try modelContext.fetch(descriptor)
+                
+                if let existingTask = existingTasks.first {
+                    taskForSession = existingTask
+                } else {
+                    // Create new Working task
+                    let workTag = tags.first(where: { $0.name == "Work" }) ?? {
+                        let tag = FocusTag(name: "Work", color: "blue")
+                        modelContext.insert(tag)
+                        return tag
+                    }()
+                    let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
+                    modelContext.insert(defaultTask)
+                    try? modelContext.save()
+                    taskForSession = defaultTask
+                }
+            } catch {
+                // Fallback: create new task
+                let workTag = tags.first(where: { $0.name == "Work" }) ?? {
+                    let tag = FocusTag(name: "Work", color: "blue")
+                    modelContext.insert(tag)
+                    return tag
+                }()
+                let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
+                modelContext.insert(defaultTask)
+                try? modelContext.save()
+                taskForSession = defaultTask
+            }
+        }
+        
         let session = FocusSession(
             duration: sessionDuration,
-            task: isBreakSession ? nil : selectedTask,
+            task: taskForSession,
             sessionType: isBreakSession ? "break" : "focus"
         )
         session.startTime = Date()
         currentSession = session
         modelContext.insert(session)
         
-        if isBreakSession && timeRemaining != 300 {
-            timeRemaining = 300 // 5 minutes
-            totalTime = 300
-        } else if !isBreakSession && timeRemaining != selectedDuration * 60 {
-            timeRemaining = selectedDuration * 60
-            totalTime = selectedDuration * 60
+        let expectedBreakDuration = notificationManager.getEffectiveBreakDuration()
+        let expectedFocusDuration = notificationManager.isTestModeEnabled ? notificationManager.getEffectiveFocusDuration() : selectedDuration * 60
+        
+        if isBreakSession && timeRemaining != expectedBreakDuration {
+            timeRemaining = expectedBreakDuration
+            totalTime = expectedBreakDuration
+        } else if !isBreakSession && timeRemaining != expectedFocusDuration {
+            timeRemaining = expectedFocusDuration
+            totalTime = expectedFocusDuration
         }
         
         // Start timer
         isTimerRunning = true
         isPaused = false
+        
+        // Start or Update Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            let sessionType: PomodoroTimerAttributes.ContentState.SessionType = isBreakSession ? .shortBreak : .focus
+            
+            // Check if Live Activity already exists, update instead of creating new one
+            if liveActivityManager.currentActivity != nil {
+                // Update existing activity with new session type and task
+                liveActivityManager.resumeActivityWithSessionType(
+                    remainingTime: timeRemaining,
+                    sessionType: sessionType,
+                    taskName: taskForSession?.title
+                )
+            } else {
+                // Create new activity only if none exists
+                liveActivityManager.startActivity(
+                    duration: timeRemaining,
+                    sessionType: sessionType,
+                    taskName: taskForSession?.title
+                )
+            }
+        }
+        
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            // Update timer using background-aware calculation
+            updateTimerWithBackgroundCalculation()
+            
             if timeRemaining > 0 {
-                timeRemaining -= 1
+                // Update Live Activity every 30 seconds to reduce battery impact
+                if Int(timeRemaining) % 30 == 0 {
+                    if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                        liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                    }
+                }
             } else {
                 completeSession()
             }
@@ -904,9 +1161,27 @@ struct TimerView: View {
         isTimerRunning = true
         isPaused = false
         
+        // Update session timing for background calculation
+        sessionStartTime = Date()
+        sessionEndTime = Date().addingTimeInterval(timeRemaining)
+        lastUpdateTime = Date()
+        
+        // Resume Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.resumeActivity(remainingTime: timeRemaining)
+        }
+        
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            // Update timer using background-aware calculation
+            updateTimerWithBackgroundCalculation()
+            
             if timeRemaining > 0 {
-                timeRemaining -= 1
+                // Update Live Activity every 30 seconds to reduce battery impact
+                if Int(timeRemaining) % 30 == 0 {
+                    if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                        liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                    }
+                }
             } else {
                 completeSession()
             }
@@ -919,21 +1194,28 @@ struct TimerView: View {
         pausedFocusTotalTime = totalTime
         pausedFocusSession = currentSession
         
+        // Mark that the focus session had a break taken
+        if let focusSession = currentSession {
+            focusSession.wasBreakTaken = true
+        }
+        
         // Pause the current focus session
         pauseTimer()
         
         // Start break session automatically
         isBreakSession = true
-        timeRemaining = 300 // 5 minutes
-        totalTime = 300
+        let breakDuration = notificationManager.getEffectiveBreakDuration()
+        timeRemaining = breakDuration
+        totalTime = breakDuration
         startTimer() // Automatically start the break timer
     }
     
     private func startSuggestedBreak() {
         // Start a suggested break
         isBreakSession = true
-        timeRemaining = 300 // 5 minutes
-        totalTime = 300
+        let breakDuration = notificationManager.getEffectiveBreakDuration()
+        timeRemaining = breakDuration
+        totalTime = breakDuration
         startTimer()
     }
     
@@ -942,6 +1224,11 @@ struct TimerView: View {
         timer = nil
         isTimerRunning = false
         isPaused = true
+        
+        // Pause Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.pauseActivity()
+        }
         
         // Update current session with actual time worked
         if let session = currentSession {
@@ -961,20 +1248,77 @@ struct TimerView: View {
         isTimerRunning = false
         isPaused = false
         
-        // Complete current session
-        if let session = currentSession {
-            session.endTime = Date()
-            session.actualDuration = Int(totalTime - timeRemaining)
+        // End Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.endCurrentActivity(completed: false)
         }
         
+        // Show completion dialog for focus sessions
+        if let session = currentSession, !isBreakSession {
+            session.endTime = Date()
+            session.actualDuration = Int(totalTime - timeRemaining)
+            sessionToComplete = session
+            showingCompletionDialog = true
+            return // Don't reset yet, wait for user confirmation
+        }
+        
+        // For break sessions, handle differently
         if isBreakSession {
-            // Break completed, return to focus session if it exists
+            // Track break time in the paused focus session
+            if let focusSession = pausedFocusSession {
+                let breakTimeSpent = Int(totalTime - timeRemaining) // in seconds
+                focusSession.breakDuration += breakTimeSpent
+                totalBreakTime += breakTimeSpent / 60 // track in minutes for display
+            }
+            
+            // Mark break session as completed
+            if let session = currentSession {
+                session.endTime = Date()
+                session.actualDuration = Int(totalTime - timeRemaining)
+                session.isCompleted = true
+            }
+            
+            // Break completed, return to focus session if it exists and auto-resume
             if let focusSession = pausedFocusSession {
                 isBreakSession = false
                 timeRemaining = pausedFocusTimeRemaining
                 totalTime = pausedFocusTotalTime
                 currentSession = focusSession
-                isPaused = true // Set to paused so user can resume
+                
+                // Auto-resume the focus timer instead of requiring manual resume
+                isTimerRunning = true
+                isPaused = false
+                
+                // Update session timing for background calculation
+                sessionStartTime = Date()
+                sessionEndTime = Date().addingTimeInterval(timeRemaining)
+                lastUpdateTime = Date()
+                
+                // Update Live Activity to show focus session and resume
+                if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                    liveActivityManager.resumeActivityWithSessionType(
+                        remainingTime: timeRemaining,
+                        sessionType: .focus,
+                        taskName: selectedTask?.title
+                    )
+                }
+                
+                // Start the focus timer
+                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    // Update timer using background-aware calculation
+                    updateTimerWithBackgroundCalculation()
+                    
+                    if timeRemaining > 0 {
+                        // Update Live Activity every 30 seconds to reduce battery impact
+                        if Int(timeRemaining) % 30 == 0 {
+                            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                                liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                            }
+                        }
+                    } else {
+                        completeSession()
+                    }
+                }
                 
                 // Clear stored state
                 pausedFocusSession = nil
@@ -986,12 +1330,8 @@ struct TimerView: View {
                 timeRemaining = selectedDuration * 60
                 totalTime = selectedDuration * 60
                 currentSession = nil
+                totalBreakTime = 0 // Reset break time
             }
-        } else {
-            // Focus session completed - reset
-            timeRemaining = selectedDuration * 60
-            totalTime = selectedDuration * 60
-            currentSession = nil
         }
         
         calculateWorkTimeToday() // Recalculate work time
@@ -1001,6 +1341,173 @@ struct TimerView: View {
         } catch {
             print("Error saving session: \(error)")
         }
+    }
+    
+    private func confirmSessionCompletion() {
+        guard let session = sessionToComplete else { return }
+        
+        // Mark session as completed
+        session.isCompleted = true
+        
+        // Update session work time for break tracking
+        sessionWorkTime += session.actualDuration / 60 // Add minutes to session work time
+        
+        // Check if session has an associated task
+        if let taskId = session.taskId {
+            // Find the task using a query
+            do {
+                var descriptor = FetchDescriptor<Task>()
+                descriptor.predicate = #Predicate<Task> { $0.id == taskId }
+                let tasks = try modelContext.fetch(descriptor)
+                if let task = tasks.first {
+                    if task.isCompleted {
+                        // Task already completed, add time to existing duration
+                        task.duration += session.actualDuration / 60 // Add minutes
+                    } else {
+                        // Mark as completed for first time
+                        task.isCompleted = true
+                        task.completedAt = Date()
+                    }
+                }
+            } catch {
+                print("Error fetching task: \(error)")
+            }
+            
+            // Reset timer and close dialog normally
+            finishSessionCompletion()
+        } else {
+            // No task assigned - prompt user to create one
+            unassignedSession = session
+            showingCompletionDialog = false // Close completion dialog
+            sessionToComplete = nil
+            showingTaskCreation = true // Show task creation dialog
+        }
+        
+        calculateWorkTimeToday() // Recalculate work time
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving completed session: \(error)")
+        }
+    }
+    
+    private func finishSessionCompletion() {
+        // Reset timer
+        timeRemaining = selectedDuration * 60
+        totalTime = selectedDuration * 60
+        currentSession = nil
+        totalBreakTime = 0 // Reset break time for next session
+        
+        // Close dialog
+        showingCompletionDialog = false
+        sessionToComplete = nil
+    }
+    
+    private func cancelSessionCompletion() {
+        // Don't mark as completed, just reset
+        timeRemaining = selectedDuration * 60
+        totalTime = selectedDuration * 60
+        currentSession = nil
+        totalBreakTime = 0 // Reset break time for next session
+        
+        // Close dialog
+        showingCompletionDialog = false
+        sessionToComplete = nil
+    }
+    
+    private func createTaskForSession() {
+        guard let session = unassignedSession, !newTaskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        // Create new task
+        let task = Task(
+            title: newTaskName.trimmingCharacters(in: .whitespacesAndNewlines),
+            duration: session.actualDuration / 60, // Convert seconds to minutes
+            tag: selectedTagForNewTask,
+            plannedDate: Date()
+        )
+        task.isCompleted = true
+        task.completedAt = Date()
+        modelContext.insert(task)
+        
+        // Link session to the new task
+        session.taskId = task.id
+        session.taskTitle = task.title
+        session.tagId = task.tagId
+        session.tagName = task.tagName
+        session.tagColor = task.tagColor
+        
+        // Reset state
+        newTaskName = ""
+        selectedTagForNewTask = nil
+        unassignedSession = nil
+        showingTaskCreation = false
+        
+        // Finish session completion
+        finishSessionCompletion()
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving new task: \(error)")
+        }
+    }
+    
+    private func skipTaskCreation() {
+        // Reset state without creating task
+        newTaskName = ""
+        selectedTagForNewTask = nil
+        unassignedSession = nil
+        showingTaskCreation = false
+        
+        // Finish session completion
+        finishSessionCompletion()
+    }
+    
+    private func handleStartTimer() {
+        // Check if we have a selected task or if it's a break session
+        if selectedTask != nil || isBreakSession {
+            startTimer()
+        } else {
+            // No task selected - show quick task creation popup
+            showingQuickTaskCreation = true
+        }
+    }
+    
+    private func createQuickTaskAndStartTimer() {
+        guard !quickTaskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        // Create new task
+        let task = Task(
+            title: quickTaskName.trimmingCharacters(in: .whitespacesAndNewlines),
+            duration: Int(selectedDuration), // Use current timer duration
+            tag: selectedTagForQuickTask,
+            plannedDate: Date()
+        )
+        modelContext.insert(task)
+        
+        // Set as selected task
+        selectedTask = task
+        
+        // Reset quick task creation state
+        quickTaskName = ""
+        selectedTagForQuickTask = nil
+        showingQuickTaskCreation = false
+        
+        // Start timer with the new task
+        startTimer()
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving quick task: \(error)")
+        }
+    }
+    
+    private func cancelQuickTaskCreation() {
+        quickTaskName = ""
+        selectedTagForQuickTask = nil
+        showingQuickTaskCreation = false
     }
     
     private func endBreakEarly() {
@@ -1017,19 +1524,52 @@ struct TimerView: View {
             session.actualDuration = Int(totalTime - timeRemaining)
         }
         
-        // Return to paused focus session if it exists
+        // Return to focus session if it exists and auto-resume
         if let focusSession = pausedFocusSession {
             isBreakSession = false
             timeRemaining = pausedFocusTimeRemaining
             totalTime = pausedFocusTotalTime
             currentSession = focusSession
-            isPaused = true // Set to paused so user can resume
+            
+            // Auto-resume the focus timer instead of requiring manual resume
+            isTimerRunning = true
+            isPaused = false
+            
+            // Update Live Activity to show focus session and resume
+            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                liveActivityManager.resumeActivityWithSessionType(
+                    remainingTime: timeRemaining,
+                    sessionType: .focus,
+                    taskName: selectedTask?.title
+                )
+            }
+            
+            // Start the focus timer
+            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                if timeRemaining > 0 {
+                    timeRemaining -= 1
+                    
+                    // Update Live Activity every 30 seconds to reduce battery impact
+                    if Int(timeRemaining) % 30 == 0 {
+                        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                            liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                        }
+                    }
+                } else {
+                    completeSession()
+                }
+            }
         } else {
             // No previous focus session, reset normally
             isBreakSession = false
             timeRemaining = selectedDuration * 60
             totalTime = selectedDuration * 60
             currentSession = nil
+            
+            // End Live Activity since no focus session to return to
+            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                liveActivityManager.endCurrentActivity(completed: false)
+            }
         }
         
         // Clear stored focus session state
@@ -1052,21 +1592,92 @@ struct TimerView: View {
         isTimerRunning = false
         isPaused = false
         
+        // Trigger alarm notification
+        let sessionTypeString = isBreakSession ? "break" : "focus"
+        let taskName = isBreakSession ? nil : selectedTask?.title
+        notificationManager.triggerTimerCompletionAlert(sessionType: sessionTypeString, taskName: taskName)
+        
+        // End Live Activity if available (marked as completed)
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.endCurrentActivity(completed: true)
+        }
+        
         // Mark session as completed
         if let session = currentSession {
             session.isCompleted = true
             session.endTime = Date()
             session.actualDuration = Int(totalTime - timeRemaining)
+            
+            // Update session work time for break tracking (focus sessions only)
+            if !isBreakSession {
+                sessionWorkTime += session.actualDuration / 60 // Add minutes to session work time
+            }
+            
+            // Mark associated task as completed if this was a focus session
+            if !isBreakSession, let taskId = session.taskId {
+                // Find the task using a query
+                do {
+                    var descriptor = FetchDescriptor<Task>()
+                    descriptor.predicate = #Predicate<Task> { $0.id == taskId }
+                    let tasks = try modelContext.fetch(descriptor)
+                    if let task = tasks.first {
+                        if task.isCompleted {
+                            // Task already completed, add time to existing duration
+                            task.duration += session.actualDuration / 60 // Add minutes
+                        } else {
+                            // Mark as completed for first time
+                            task.isCompleted = true
+                            task.completedAt = Date()
+                        }
+                    }
+                } catch {
+                    print("Error fetching task: \(error)")
+                }
+            }
         }
         
         if isBreakSession {
-            // Break completed, return to focus session if it exists
+            // Break completed, return to focus session if it exists and auto-resume
             if let focusSession = pausedFocusSession {
                 isBreakSession = false
                 timeRemaining = pausedFocusTimeRemaining
                 totalTime = pausedFocusTotalTime
                 currentSession = focusSession
-                isPaused = true // Set to paused so user can resume
+                
+                // Auto-resume the focus timer instead of requiring manual resume
+                isTimerRunning = true
+                isPaused = false
+                
+                // Update session timing for background calculation
+                sessionStartTime = Date()
+                sessionEndTime = Date().addingTimeInterval(timeRemaining)
+                lastUpdateTime = Date()
+                
+                // Update Live Activity to show focus session and resume
+                if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                    liveActivityManager.resumeActivityWithSessionType(
+                        remainingTime: timeRemaining,
+                        sessionType: .focus,
+                        taskName: selectedTask?.title
+                    )
+                }
+                
+                // Start the focus timer
+                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    // Update timer using background-aware calculation
+                    updateTimerWithBackgroundCalculation()
+                    
+                    if timeRemaining > 0 {
+                        // Update Live Activity every 30 seconds to reduce battery impact
+                        if Int(timeRemaining) % 30 == 0 {
+                            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                                liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                            }
+                        }
+                    } else {
+                        completeSession()
+                    }
+                }
                 
                 // Clear stored state
                 pausedFocusSession = nil
@@ -1209,8 +1820,662 @@ struct TaskSelectorSheet: View {
     }
 }
 
+struct CompletionPopupView: View {
+    let session: FocusSession?
+    let onComplete: () -> Void
+    let onCancel: () -> Void
+    
+    var body: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onCancel()
+                }
+            
+            // Popup card
+            VStack(spacing: 24) {
+                // Header
+                VStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(.green)
+                    
+                    Text("Session Complete")
+                        .font(.custom("Geist", size: 24))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                
+                // Session details
+                if let session = session {
+                    VStack(spacing: 16) {
+                        // Focus time
+                        HStack {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(.green)
+                            
+                            Text("Focus time:")
+                                .font(.custom("Geist", size: 16))
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Text("\(session.actualDuration / 60) minutes")
+                                .font(.custom("Geist", size: 16))
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        // Break time (if any)
+                        if session.breakDuration > 0 {
+                            HStack {
+                                Image(systemName: "cup.and.heat.waves")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.orange)
+                                
+                                Text("Break time:")
+                                    .font(.custom("Geist", size: 16))
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("\(session.breakDuration / 60) minutes")
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                        
+                        // Task info
+                        if let taskTitle = session.taskTitle {
+                            HStack {
+                                Image(systemName: "target")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.blue)
+                                
+                                Text("Task:")
+                                    .font(.custom("Geist", size: 16))
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text(taskTitle)
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                }
+                
+                Text("Mark this session as completed?")
+                    .font(.custom("Geist", size: 16))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                // Action buttons
+                HStack(spacing: 12) {
+                    // Cancel button
+                    Button(action: onCancel) {
+                        Text("Cancel")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.gray.opacity(0.1))
+                            )
+                    }
+                    
+                    // Complete button
+                    Button(action: onComplete) {
+                        Text("Complete")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.green)
+                            )
+                    }
+                }
+            }
+            .padding(32)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.regularMaterial)
+                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+            )
+            .padding(.horizontal, 24)
+        }
+        .animation(.easeInOut(duration: 0.3), value: session)
+    }
+}
+
+struct TimerSettingsView: View {
+    @Binding var selectedDuration: Double
+    @ObservedObject var notificationManager: NotificationManager
+    let onDurationChange: (Double) -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    let quickDurations = [1, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120]
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 32) {
+                    // Timer Duration Section
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Timer Duration")
+                                .font(.custom("Geist", size: 20))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text("Select a duration for focus sessions")
+                                .font(.custom("Geist", size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        // Quick duration buttons
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
+                            ForEach(quickDurations, id: \.self) { duration in
+                                Button(action: {
+                                    selectedDuration = Double(duration)
+                                    onDurationChange(Double(duration))
+                                }) {
+                                    VStack(spacing: 4) {
+                                        Text("\(duration)")
+                                            .font(.custom("Geist", size: 18))
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(selectedDuration == Double(duration) ? .white : .primary)
+                                        
+                                        Text("min")
+                                            .font(.custom("Geist", size: 12))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(selectedDuration == Double(duration) ? .white.opacity(0.8) : .secondary)
+                                    }
+                                    .frame(height: 60)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(selectedDuration == Double(duration) ? Color.blue : Color.gray.opacity(0.1))
+                                            .stroke(selectedDuration == Double(duration) ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
+                                .scaleEffect(selectedDuration == Double(duration) ? 1.05 : 1.0)
+                                .animation(.easeInOut(duration: 0.2), value: selectedDuration)
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Alarm Settings Section
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Alarm Settings")
+                                .font(.custom("Geist", size: 20))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text("Customize how you're notified when timers complete")
+                                .font(.custom("Geist", size: 14))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        VStack(spacing: 16) {
+                            // Sound Alert Toggle
+                            SettingsToggleRow(
+                                title: "Sound Alert",
+                                description: "Play sound when timer completes",
+                                isOn: $notificationManager.enableSoundAlert
+                            )
+                            
+                            // Haptic Feedback Toggle
+                            SettingsToggleRow(
+                                title: "Haptic Feedback",
+                                description: "Vibrate when timer completes",
+                                isOn: $notificationManager.enableHapticFeedback
+                            )
+                            
+                            // Notifications Toggle
+                            SettingsToggleRow(
+                                title: "Notifications",
+                                description: "Show notification when app is backgrounded",
+                                isOn: $notificationManager.enableNotifications
+                            )
+                            
+                            // Alarm Sound Selection
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Alarm Sound")
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                
+                                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 12) {
+                                    ForEach(NotificationManager.AlarmSound.allCases, id: \.self) { sound in
+                                        Button(action: {
+                                            notificationManager.selectedAlarmSound = sound
+                                            notificationManager.testAlarmSound()
+                                            notificationManager.saveSettings()
+                                        }) {
+                                            Text(sound.displayName)
+                                                .font(.custom("Geist", size: 14))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(notificationManager.selectedAlarmSound == sound ? .white : .primary)
+                                                .frame(height: 44)
+                                                .frame(maxWidth: .infinity)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(notificationManager.selectedAlarmSound == sound ? Color.blue : Color.gray.opacity(0.1))
+                                                        .stroke(notificationManager.selectedAlarmSound == sound ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                                                )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Testing Section
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Testing Mode")
+                                .font(.custom("Geist", size: 20))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            
+                            Text("Enable short durations for testing timer functionality")
+                                .font(.custom("Geist", size: 14))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        
+                        VStack(spacing: 16) {
+                            // Test Mode Toggle
+                            SettingsToggleRow(
+                                title: "Enable Test Mode",
+                                description: "Use seconds instead of minutes for quick testing",
+                                isOn: $notificationManager.isTestModeEnabled
+                            ) {
+                                notificationManager.saveSettings()
+                            }
+                            
+                            if notificationManager.isTestModeEnabled {
+                                VStack(spacing: 16) {
+                                    // Test Focus Duration
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Test Focus Duration")
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        HStack(spacing: 12) {
+                                            Stepper(value: $notificationManager.testFocusDuration, in: 3...60, step: 1) {
+                                                Text("\(notificationManager.testFocusDuration) seconds")
+                                                    .font(.custom("Geist", size: 14))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .onChange(of: notificationManager.testFocusDuration) { _, _ in
+                                                notificationManager.saveSettings()
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Test Break Duration
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Test Break Duration")
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        HStack(spacing: 12) {
+                                            Stepper(value: $notificationManager.testBreakDuration, in: 3...30, step: 1) {
+                                                Text("\(notificationManager.testBreakDuration) seconds")
+                                                    .font(.custom("Geist", size: 14))
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .onChange(of: notificationManager.testBreakDuration) { _, _ in
+                                                notificationManager.saveSettings()
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(.leading, 16)
+                            }
+                        }
+                    }
+                    
+                    Spacer(minLength: 20)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        notificationManager.saveSettings()
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.blue)
+                }
+            }
+            .onAppear {
+                notificationManager.checkNotificationPermission()
+            }
+        }
+    }
+}
+
+struct SettingsToggleRow: View {
+    let title: String
+    let description: String
+    @Binding var isOn: Bool
+    let onToggle: (() -> Void)?
+    
+    init(title: String, description: String, isOn: Binding<Bool>, onToggle: (() -> Void)? = nil) {
+        self.title = title
+        self.description = description
+        self._isOn = isOn
+        self.onToggle = onToggle
+    }
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text(description)
+                    .font(.custom("Geist", size: 12))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.leading)
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: $isOn)
+                .onChange(of: isOn) { _, _ in
+                    onToggle?()
+                }
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+struct TaskCreationSheet: View {
+    @Binding var taskName: String
+    @Binding var selectedTag: FocusTag?
+    let tags: [FocusTag]
+    let sessionDuration: Int // in seconds
+    let onSave: () -> Void
+    let onSkip: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var sessionDurationText: String {
+        let minutes = sessionDuration / 60
+        let seconds = sessionDuration % 60
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 32) {
+                VStack(spacing: 16) {
+                    Text("Name Your Focus Session")
+                        .font(.custom("Geist", size: 24))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    Text("You focused for \(sessionDurationText). What were you working on?")
+                        .font(.custom("Geist", size: 16))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                
+                VStack(spacing: 24) {
+                    // Task Name Input
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Task Name")
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        TextField("What did you work on?", text: $taskName)
+                            .font(.custom("Geist", size: 16))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.08))
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                    }
+                    
+                    // Tag Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Category (Optional)")
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+                            ForEach(tags, id: \.id) { tag in
+                                TaskCreationTagChip(
+                                    tag: tag,
+                                    isSelected: selectedTag?.id == tag.id
+                                ) {
+                                    selectedTag = selectedTag?.id == tag.id ? nil : tag
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            .navigationTitle("Focus Session")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Skip") {
+                        onSkip()
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .foregroundColor(.secondary)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        onSave()
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .fontWeight(.semibold)
+                    .foregroundColor(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                    .disabled(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+struct TaskCreationTagChip: View {
+    let tag: FocusTag
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var chipColor: Color {
+        switch tag.color {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(chipColor)
+                    .frame(width: 12, height: 12)
+                
+                Text(tag.name)
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(isSelected ? .white : .primary)
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(isSelected ? chipColor : Color.gray.opacity(0.08))
+                    .stroke(isSelected ? chipColor : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct QuickTaskCreationSheet: View {
+    @Binding var taskName: String
+    @Binding var selectedTag: FocusTag?
+    let tags: [FocusTag]
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 32) {
+                VStack(spacing: 16) {
+                    Text("Create Task to Start")
+                        .font(.custom("Geist", size: 24))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    Text("What would you like to focus on?")
+                        .font(.custom("Geist", size: 16))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                
+                VStack(spacing: 24) {
+                    // Task Name Input
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Task Name")
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        TextField("Enter task name", text: $taskName)
+                            .font(.custom("Geist", size: 16))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.08))
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                    }
+                    
+                    // Tag Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Category (Optional)")
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+                            ForEach(tags, id: \.id) { tag in
+                                TaskCreationTagChip(
+                                    tag: tag,
+                                    isSelected: selectedTag?.id == tag.id
+                                ) {
+                                    selectedTag = selectedTag?.id == tag.id ? nil : tag
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            .navigationTitle("Quick Start")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .foregroundColor(.secondary)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Start Timer") {
+                        onSave()
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .fontWeight(.semibold)
+                    .foregroundColor(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                    .disabled(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
 #Preview {
     ContentView()
+        .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self], inMemory: true)
+}
+
+#Preview("TimerView") {
+    TimerView(selectedTab: .constant(0))
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self], inMemory: true)
 }
 
