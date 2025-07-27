@@ -32,10 +32,43 @@ struct TaskManagerView: View {
         return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
     }
     
-    // Filter tasks for the selected date
+    // Filter tasks for the selected date (only incomplete tasks)
     private var tasksForSelectedDate: [Task] {
         return allTasks.filter { task in
-            calendar.isDate(task.plannedDate, inSameDayAs: selectedDate)
+            calendar.isDate(task.plannedDate, inSameDayAs: selectedDate) && !task.isCompleted
+        }
+    }
+    
+    // Get completed sessions for the selected date (including default working tasks)
+    private var completedSessionsForSelectedDate: [FocusSession] {
+        return focusSessions.filter { session in
+            session.isCompleted && calendar.isDate(session.createdAt, inSameDayAs: selectedDate)
+        }
+    }
+    
+    // Get tasks that were completed through timer sessions but don't have a manually created task
+    private var timerCompletedTasksForDate: [Task] {
+        let manualTaskIds = Set(tasksForSelectedDate.map { $0.id })
+        let sessionTaskIds = completedSessionsForSelectedDate.compactMap { $0.taskId }
+        
+        return allTasks.filter { task in
+            task.isCompleted &&
+            calendar.isDate(task.completedAt ?? task.createdAt, inSameDayAs: selectedDate) &&
+            !manualTaskIds.contains(task.id) &&
+            sessionTaskIds.contains(task.id)
+        }
+    }
+    
+    // Combined tasks for display (manual + timer completed)
+    private var allTasksForSelectedDate: [Task] {
+        var combined = tasksForSelectedDate
+        combined.append(contentsOf: timerCompletedTasksForDate)
+        return combined.sorted { task1, task2 in
+            // Sort by completion status first (incomplete first), then by creation time
+            if task1.isCompleted != task2.isCompleted {
+                return !task1.isCompleted
+            }
+            return task1.createdAt > task2.createdAt
         }
     }
     
@@ -156,7 +189,7 @@ struct TaskManagerView: View {
                     Text("\(currentStreak)")
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.medium)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                 }
             }
             .padding(.horizontal, 24)
@@ -232,12 +265,34 @@ struct TaskManagerView: View {
     }
     
     private var tasksContent: some View {
-        let incompleteTasks = tasksForSelectedDate.filter { !$0.isCompleted }
-        let completedTasks = tasksForSelectedDate.filter { $0.isCompleted }
-        
-        return VStack(alignment: .leading, spacing: 0) {
-            if tasksForSelectedDate.isEmpty {
-                // Empty state
+        VStack(alignment: .leading, spacing: 20) {
+            // Today's Plan Header
+            HStack {
+                Text("Today's Progress")
+                    .font(.custom("Geist", size: 28))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                if !allTasksForSelectedDate.isEmpty {
+                    Text("\(allTasksForSelectedDate.filter(\.isCompleted).count)/\(allTasksForSelectedDate.count)")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+            
+            // Tasks List
+            if allTasksForSelectedDate.isEmpty {
                 VStack(spacing: 16) {
                     Spacer()
                     
@@ -245,12 +300,12 @@ struct TaskManagerView: View {
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
                     
-                    Text("No tasks planned")
+                    Text("No tasks completed")
                         .font(.custom("Geist", size: 20))
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
-                    Text("Add a task for \(selectedDateText)")
+                    Text("Start a focus session to track your work")
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.light)
                         .foregroundColor(.secondary.opacity(0.7))
@@ -260,19 +315,20 @@ struct TaskManagerView: View {
                 .frame(maxWidth: .infinity)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
-                        // To-Do Section
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("To-Do")
-                                    .font(.custom("Geist", size: 24))
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                if !incompleteTasks.isEmpty {
-                                    Text("\(incompleteTasks.count)")
+                    LazyVStack(spacing: 16) {
+                        // Pending Tasks Section
+                        let pendingTasks = allTasksForSelectedDate.filter { !$0.isCompleted }
+                        if !pendingTasks.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("To Do")
+                                        .font(.custom("Geist", size: 18))
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(pendingTasks.count)")
                                         .font(.custom("Geist", size: 14))
                                         .fontWeight(.medium)
                                         .foregroundColor(.secondary)
@@ -280,36 +336,28 @@ struct TaskManagerView: View {
                                         .padding(.vertical, 4)
                                         .background(
                                             Capsule()
-                                                .fill(Color.gray.opacity(0.1))
+                                                .fill(Color.blue.opacity(0.1))
                                         )
                                 }
-                            }
-                            
-                            if incompleteTasks.isEmpty {
-                                Text("All tasks completed! 🎉")
-                                    .font(.custom("Geist", size: 16))
-                                    .fontWeight(.light)
-                                    .foregroundColor(.secondary)
-                                    .padding(.vertical, 20)
-                                    .frame(maxWidth: .infinity)
-                            } else {
-                                LazyVStack(spacing: 12) {
-                                    ForEach(incompleteTasks, id: \.id) { task in
-                                        TaskRowView(task: task) {
-                                            toggleTaskCompletion(task)
-                                        }
+                                .padding(.horizontal, 24)
+                                
+                                ForEach(pendingTasks, id: \.id) { task in
+                                    TaskRowView(task: task) {
+                                        toggleTaskCompletion(task)
                                     }
+                                    .padding(.horizontal, 24)
                                 }
                             }
                         }
                         
-                        // Completed Section
+                        // Completed Tasks Section
+                        let completedTasks = allTasksForSelectedDate.filter { $0.isCompleted }
                         if !completedTasks.isEmpty {
-                            VStack(alignment: .leading, spacing: 16) {
+                            VStack(alignment: .leading, spacing: 12) {
                                 HStack {
-                                    Text("Completed")
-                                        .font(.custom("Geist", size: 24))
-                                        .fontWeight(.medium)
+                                    Text("Done")
+                                        .font(.custom("Geist", size: 18))
+                                        .fontWeight(.semibold)
                                         .foregroundColor(.primary)
                                     
                                     Spacer()
@@ -325,19 +373,18 @@ struct TaskManagerView: View {
                                                 .fill(Color.green.opacity(0.1))
                                         )
                                 }
+                                .padding(.horizontal, 24)
                                 
-                                LazyVStack(spacing: 12) {
-                                    ForEach(completedTasks, id: \.id) { task in
-                                        TaskRowView(task: task) {
-                                            toggleTaskCompletion(task)
-                                        }
+                                ForEach(completedTasks, id: \.id) { task in
+                                    CompletedTaskRowView(task: task, sessions: getSessionsForTask(task)) {
+                                        toggleTaskCompletion(task)
                                     }
+                                    .padding(.horizontal, 24)
                                 }
                             }
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
+                    .padding(.vertical, 8)
                     .padding(.bottom, 100) // Space for floating button
                 }
             }
@@ -427,6 +474,12 @@ struct TaskManagerView: View {
             print("Error updating task: \(error)")
         }
     }
+    
+    private func getSessionsForTask(_ task: Task) -> [FocusSession] {
+        return focusSessions.filter { session in
+            session.taskId == task.id && session.isCompleted
+        }
+    }
 }
 
 struct TaskRowView: View {
@@ -501,6 +554,153 @@ struct TaskRowView: View {
     }
 }
 
+struct CompletedTaskRowView: View {
+    let task: Task
+    let sessions: [FocusSession]
+    let onToggle: () -> Void
+    
+    var tagColor: Color {
+        guard let colorString = task.tagColor else { return .gray }
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .gray
+        }
+    }
+    
+    var totalTimeSpent: Int {
+        // actualDuration is in seconds, convert to minutes
+        return sessions.reduce(0) { total, session in
+            total + (session.actualDuration / 60)
+        }
+    }
+    
+    var totalBreakTime: Int {
+        // breakDuration is in seconds, convert to minutes
+        return sessions.reduce(0) { total, session in
+            total + (session.breakDuration / 60)
+        }
+    }
+    
+    var formattedTime: String {
+        let hours = totalTimeSpent / 60
+        let minutes = totalTimeSpent % 60
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
+        }
+    }
+    
+    var formattedBreakTime: String {
+        if totalBreakTime > 0 {
+            return "\(totalBreakTime)m"
+        } else {
+            return "0m"
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Completion circle
+            Button(action: onToggle) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.green)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(task.title)
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                    .strikethrough(true)
+                
+                HStack(spacing: 8) {
+                    if let tagName = task.tagName {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(tagColor)
+                                .frame(width: 8, height: 8)
+                            
+                            Text(tagName)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.light)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Time spent badge
+                    if totalTimeSpent > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.green)
+                            
+                            Text(formattedTime)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.medium)
+                                .foregroundColor(.green)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(.green.opacity(0.1))
+                        )
+                    }
+                    
+                    // Break time badge
+                    if totalBreakTime > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "cup.and.heat.waves")
+                                .font(.system(size: 10))
+                                .foregroundColor(.orange)
+                            
+                            Text(formattedBreakTime)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.medium)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(.orange.opacity(0.1))
+                        )
+                    }
+                    
+                    // Sessions count
+                    if sessions.count > 0 {
+                        Text("\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.light)
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.green.opacity(0.03))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .contentShape(Rectangle())
+    }
+}
+
 struct NewTaskSheet: View {
     @Binding var taskTitle: String
     @Binding var selectedTag: FocusTag?
@@ -510,225 +710,147 @@ struct NewTaskSheet: View {
     let onSave: () -> Void
     let onCancel: () -> Void
     
-    @State private var showingTagSheet = false
-    @Environment(\.modelContext) private var modelContext
-    
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM dd, yyyy"
-        return formatter
-    }
-    
     var body: some View {
         NavigationView {
-            ZStack {
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    ScrollView {
-                        VStack(spacing: 24) {
-                            // Task Name Section
-                            HStack(spacing: 16) {
-                                Image(systemName: "doc.text")
-                                    .font(.system(size: 24))
-                                    .foregroundColor(.primary)
-                                    .frame(width: 32)
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Task Name")
-                                        .font(.custom("Geist", size: 17))
-                                        .fontWeight(.regular)
-                                        .foregroundColor(.primary)
-                                    
-                                    TextField("Enter task name", text: $taskTitle)
-                                        .font(.custom("Geist", size: 16))
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Spacer()
-                            }
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 20)
-                            .background(Color(.systemBackground))
-                            .cornerRadius(12)
-                            
-                            // Date Section
-                            Button(action: {}) {
-                                HStack(spacing: 16) {
-                                    Image(systemName: "calendar")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.primary)
-                                        .frame(width: 32)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Date")
-                                            .font(.custom("Geist", size: 17))
-                                            .fontWeight(.regular)
-                                            .foregroundColor(.primary)
-                                        
-                                        Text(dateFormatter.string(from: plannedDate))
-                                            .font(.custom("Geist", size: 16))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 20)
-                                .background(Color(.systemBackground))
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            
-                            // Duration Section
-                            Menu {
-                                ForEach(Array(stride(from: 5, through: 120, by: 5)), id: \.self) { duration in
-                                    Button("\(duration) min") {
-                                        taskDuration = duration
-                                    }
-                                }
-                            } label: {
-                                HStack(spacing: 16) {
-                                    Image(systemName: "clock")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.primary)
-                                        .frame(width: 32)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Duration")
-                                            .font(.custom("Geist", size: 17))
-                                            .fontWeight(.regular)
-                                            .foregroundColor(.primary)
-                                        
-                                        Text("\(taskDuration) min")
-                                            .font(.custom("Geist", size: 16))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 20)
-                                .background(Color(.systemBackground))
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            
-                            // Category Section
-                            Button(action: { showingTagSheet = true }) {
-                                HStack(spacing: 16) {
-                                    Image(systemName: "tag")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.primary)
-                                        .frame(width: 32)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Category")
-                                            .font(.custom("Geist", size: 17))
-                                            .fontWeight(.regular)
-                                            .foregroundColor(.primary)
-                                        
-                                        if let selectedTag = selectedTag {
-                                            Text(selectedTag.name)
-                                                .font(.custom("Geist", size: 16))
-                                                .foregroundColor(.blue)
-                                        } else {
-                                            Text("Select a category")
-                                                .font(.custom("Geist", size: 16))
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 20)
-                                .background(Color(.systemBackground))
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+            ScrollView {
+                VStack(spacing: 28) {
+                    // Task Title Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Task Title")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 32)
-                        .padding(.bottom, 120) // Extra space for the done button
+                        
+                        TextField("What do you want to focus on?", text: $taskTitle)
+                            .font(.custom("Geist", size: 16))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.08))
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+
                     }
                     
-                    Spacer()
+                    // Planned Date Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Planned Date")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
+                            .datePickerStyle(GraphicalDatePickerStyle())
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.05))
+                            )
+                    }
                     
-                    // Done Button at bottom - always visible
-                    Button("Done") {
+                    // Duration Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Focus Duration")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                            ForEach([15, 25, 30, 45, 60, 90], id: \.self) { duration in
+                                let isSelected = taskDuration == duration
+                                
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        taskDuration = duration
+                                    }
+                                }) {
+                                    VStack(spacing: 8) {
+                                        Text("\(duration)")
+                                            .font(.custom("Geist", size: 24))
+                                            .fontWeight(.bold)
+                                            .foregroundColor(isSelected ? .white : .primary)
+                                        
+                                        Text("min")
+                                            .font(.custom("Geist", size: 12))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 70)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(isSelected ? Color.blue : Color.gray.opacity(0.08))
+                                            .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                                    )
+                                }
+                                .scaleEffect(isSelected ? 1.02 : 1.0)
+                                .animation(.easeInOut(duration: 0.2), value: isSelected)
+                            }
+                        }
+                    }
+                    
+                    // Tag Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Category")
+                                .font(.custom("Geist", size: 18))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                            Spacer()
+                        }
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+                            ForEach(tags, id: \.id) { tag in
+                                ModernTagSelectionChip(
+                                    tag: tag,
+                                    isSelected: selectedTag?.id == tag.id
+                                ) {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedTag = selectedTag?.id == tag.id ? nil : tag
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(minLength: 40)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+            }
+            .background(Color(.systemBackground))
+            .navigationTitle("New Task")
+            .navigationBarTitleDisplayMode(.large)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .foregroundColor(.blue)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
                         onSave()
                     }
                     .font(.custom("Geist", size: 17))
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.4) : Color.blue)
-                    )
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 32)
+                    .foregroundColor(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
                     .disabled(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .ignoresSafeArea(.keyboard)
             }
-            .navigationTitle("Add Task")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { onCancel() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.primary)
-                    }
-                }
-            }
-        }
-        .sheet(isPresented: $showingTagSheet) {
-            TagSelectionSheet(
-                tags: tags,
-                selectedTag: $selectedTag,
-                onCreateTag: createNewTag
-            )
-        }
-    }
-    
-    private func tagColor(_ colorString: String) -> Color {
-        switch colorString {
-        case "blue": return .blue
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "red": return .red
-        default: return .blue
-        }
-    }
-    
-    private func createNewTag(name: String, color: String) {
-        let newTag = FocusTag(name: name, color: color)
-        modelContext.insert(newTag)
-        
-        do {
-            try modelContext.save()
-            selectedTag = newTag
-        } catch {
-            print("Error saving new tag: \(error)")
         }
     }
 }
@@ -767,117 +889,6 @@ struct TagSelectionChip: View {
                 )
         }
         .buttonStyle(PlainButtonStyle())
-    }
-}
-
-struct TagSelectionSheet: View {
-    let tags: [FocusTag]
-    @Binding var selectedTag: FocusTag?
-    let onCreateTag: (String, String) -> Void
-    
-    @Environment(\.dismiss) private var dismiss
-    @State private var showingNewTagAlert = false
-    @State private var newTagName = ""
-    @State private var newTagColor = "blue"
-    
-    private let availableColors = [
-        ("blue", Color.blue),
-        ("green", Color.green),
-        ("purple", Color.purple),
-        ("orange", Color.orange),
-        ("red", Color.red)
-    ]
-    
-    var body: some View {
-        NavigationView {
-            List {
-                Section {
-                    ForEach(tags, id: \.id) { tag in
-                        Button(action: {
-                            selectedTag = tag
-                            dismiss()
-                        }) {
-                            HStack {
-                                Circle()
-                                    .fill(tagColor(tag.color))
-                                    .frame(width: 20, height: 20)
-                                
-                                Text(tag.name)
-                                    .font(.custom("Geist", size: 17))
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                if selectedTag?.id == tag.id {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(.blue)
-                                }
-                            }
-                        }
-                    }
-                    
-                    Button(action: { showingNewTagAlert = true }) {
-                        HStack {
-                            Circle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 20, height: 20)
-                                .overlay(
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(.gray)
-                                )
-                            
-                            Text("Create New Tag")
-                                .font(.custom("Geist", size: 17))
-                                .foregroundColor(.blue)
-                            
-                            Spacer()
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Select Tag")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .font(.custom("Geist", size: 17))
-                    .fontWeight(.semibold)
-                }
-            }
-        }
-        .alert("New Tag", isPresented: $showingNewTagAlert) {
-            TextField("Tag name", text: $newTagName)
-            
-            Button("Cancel", role: .cancel) {
-                newTagName = ""
-            }
-            
-            Button("Create") {
-                if !newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    onCreateTag(newTagName, newTagColor)
-                    newTagName = ""
-                    dismiss()
-                }
-            }
-            .disabled(newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } message: {
-            Text("Enter a name for your new tag")
-        }
-    }
-    
-    private func tagColor(_ colorString: String) -> Color {
-        switch colorString {
-        case "blue": return .blue
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "red": return .red
-        default: return .blue
-        }
     }
 }
 
