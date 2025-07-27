@@ -342,10 +342,8 @@ struct TaskManagerView: View {
                                 .padding(.horizontal, 24)
                                 
                                 ForEach(pendingTasks, id: \.id) { task in
-                                    TaskRowView(task: task) {
-                                        toggleTaskCompletion(task)
-                                    }
-                                    .padding(.horizontal, 24)
+                                    TaskRowView(task: task)
+                                        .padding(.horizontal, 24)
                                 }
                             }
                         }
@@ -376,10 +374,8 @@ struct TaskManagerView: View {
                                 .padding(.horizontal, 24)
                                 
                                 ForEach(completedTasks, id: \.id) { task in
-                                    CompletedTaskRowView(task: task, sessions: getSessionsForTask(task)) {
-                                        toggleTaskCompletion(task)
-                                    }
-                                    .padding(.horizontal, 24)
+                                    CompletedTaskRowView(task: task, sessions: getSessionsForTask(task))
+                                        .padding(.horizontal, 24)
                                 }
                             }
                         }
@@ -484,7 +480,6 @@ struct TaskManagerView: View {
 
 struct TaskRowView: View {
     let task: Task
-    let onToggle: () -> Void
     
     var tagColor: Color {
         guard let colorString = task.tagColor else { return .gray }
@@ -500,13 +495,10 @@ struct TaskRowView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Completion circle
-            Button(action: onToggle) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundColor(task.isCompleted ? .green : .secondary)
-            }
-            .buttonStyle(PlainButtonStyle())
+            // Completion circle (non-interactive)
+            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                .font(.title2)
+                .foregroundColor(task.isCompleted ? .green : .secondary)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
@@ -557,7 +549,6 @@ struct TaskRowView: View {
 struct CompletedTaskRowView: View {
     let task: Task
     let sessions: [FocusSession]
-    let onToggle: () -> Void
     
     var tagColor: Color {
         guard let colorString = task.tagColor else { return .gray }
@@ -606,13 +597,10 @@ struct CompletedTaskRowView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Completion circle
-            Button(action: onToggle) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(.green)
-            }
-            .buttonStyle(PlainButtonStyle())
+            // Completion circle (non-interactive)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title2)
+                .foregroundColor(.green)
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(task.title)
