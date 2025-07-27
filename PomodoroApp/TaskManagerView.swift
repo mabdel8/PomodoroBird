@@ -510,147 +510,225 @@ struct NewTaskSheet: View {
     let onSave: () -> Void
     let onCancel: () -> Void
     
+    @State private var showingTagSheet = false
+    @Environment(\.modelContext) private var modelContext
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM dd, yyyy"
+        return formatter
+    }
+    
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 28) {
-                    // Task Title Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Task Title")
-                                .font(.custom("Geist", size: 18))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                            Spacer()
-                        }
-                        
-                        TextField("What do you want to focus on?", text: $taskTitle)
-                            .font(.custom("Geist", size: 16))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color.gray.opacity(0.08))
-                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                            )
-
-                    }
-                    
-                    // Planned Date Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Planned Date")
-                                .font(.custom("Geist", size: 18))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                            Spacer()
-                        }
-                        
-                        DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
-                            .datePickerStyle(GraphicalDatePickerStyle())
-                            .padding(16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color.gray.opacity(0.05))
-                            )
-                    }
-                    
-                    // Duration Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Focus Duration")
-                                .font(.custom("Geist", size: 18))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                            Spacer()
-                        }
-                        
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
-                            ForEach([15, 25, 30, 45, 60, 90], id: \.self) { duration in
-                                let isSelected = taskDuration == duration
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            // Task Name Section
+                            HStack(spacing: 16) {
+                                Image(systemName: "doc.text")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.primary)
+                                    .frame(width: 32)
                                 
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Task Name")
+                                        .font(.custom("Geist", size: 17))
+                                        .fontWeight(.regular)
+                                        .foregroundColor(.primary)
+                                    
+                                    TextField("Enter task name", text: $taskTitle)
+                                        .font(.custom("Geist", size: 16))
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 20)
+                            .background(Color(.systemBackground))
+                            .cornerRadius(12)
+                            
+                            // Date Section
+                            Button(action: {}) {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "calendar")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 32)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Date")
+                                            .font(.custom("Geist", size: 17))
+                                            .fontWeight(.regular)
+                                            .foregroundColor(.primary)
+                                        
+                                        Text(dateFormatter.string(from: plannedDate))
+                                            .font(.custom("Geist", size: 16))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 20)
+                                .background(Color(.systemBackground))
+                                .cornerRadius(12)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            // Duration Section
+                            Menu {
+                                ForEach(Array(stride(from: 5, through: 120, by: 5)), id: \.self) { duration in
+                                    Button("\(duration) min") {
                                         taskDuration = duration
                                     }
-                                }) {
-                                    VStack(spacing: 8) {
-                                        Text("\(duration)")
-                                            .font(.custom("Geist", size: 24))
-                                            .fontWeight(.bold)
-                                            .foregroundColor(isSelected ? .white : .primary)
+                                }
+                            } label: {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "clock")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 32)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Duration")
+                                            .font(.custom("Geist", size: 17))
+                                            .fontWeight(.regular)
+                                            .foregroundColor(.primary)
                                         
-                                        Text("min")
-                                            .font(.custom("Geist", size: 12))
-                                            .fontWeight(.medium)
-                                            .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                                        Text("\(taskDuration) min")
+                                            .font(.custom("Geist", size: 16))
+                                            .foregroundColor(.secondary)
                                     }
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 70)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 16)
-                                            .fill(isSelected ? Color.blue : Color.gray.opacity(0.08))
-                                            .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
-                                    )
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
                                 }
-                                .scaleEffect(isSelected ? 1.02 : 1.0)
-                                .animation(.easeInOut(duration: 0.2), value: isSelected)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 20)
+                                .background(Color(.systemBackground))
+                                .cornerRadius(12)
                             }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            // Category Section
+                            Button(action: { showingTagSheet = true }) {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "tag")
+                                        .font(.system(size: 24))
+                                        .foregroundColor(.primary)
+                                        .frame(width: 32)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Category")
+                                            .font(.custom("Geist", size: 17))
+                                            .fontWeight(.regular)
+                                            .foregroundColor(.primary)
+                                        
+                                        if let selectedTag = selectedTag {
+                                            Text(selectedTag.name)
+                                                .font(.custom("Geist", size: 16))
+                                                .foregroundColor(.blue)
+                                        } else {
+                                            Text("Select a category")
+                                                .font(.custom("Geist", size: 16))
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 20)
+                                .background(Color(.systemBackground))
+                                .cornerRadius(12)
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 32)
+                        .padding(.bottom, 120) // Extra space for the done button
                     }
                     
-                    // Tag Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Category")
-                                .font(.custom("Geist", size: 18))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
-                            Spacer()
-                        }
-                        
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
-                            ForEach(tags, id: \.id) { tag in
-                                ModernTagSelectionChip(
-                                    tag: tag,
-                                    isSelected: selectedTag?.id == tag.id
-                                ) {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        selectedTag = selectedTag?.id == tag.id ? nil : tag
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    Spacer()
                     
-                    Spacer(minLength: 40)
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
-            }
-            .background(Color(.systemBackground))
-            .navigationTitle("New Task")
-            .navigationBarTitleDisplayMode(.large)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        onCancel()
-                    }
-                    .font(.custom("Geist", size: 17))
-                    .foregroundColor(.blue)
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
+                    // Done Button at bottom - always visible
+                    Button("Done") {
                         onSave()
                     }
                     .font(.custom("Geist", size: 17))
                     .fontWeight(.semibold)
-                    .foregroundColor(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.gray.opacity(0.4) : Color.blue)
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 32)
                     .disabled(taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
+                .ignoresSafeArea(.keyboard)
             }
+            .navigationTitle("Add Task")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { onCancel() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.primary)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingTagSheet) {
+            TagSelectionSheet(
+                tags: tags,
+                selectedTag: $selectedTag,
+                onCreateTag: createNewTag
+            )
+        }
+    }
+    
+    private func tagColor(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
+    }
+    
+    private func createNewTag(name: String, color: String) {
+        let newTag = FocusTag(name: name, color: color)
+        modelContext.insert(newTag)
+        
+        do {
+            try modelContext.save()
+            selectedTag = newTag
+        } catch {
+            print("Error saving new tag: \(error)")
         }
     }
 }
@@ -689,6 +767,117 @@ struct TagSelectionChip: View {
                 )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct TagSelectionSheet: View {
+    let tags: [FocusTag]
+    @Binding var selectedTag: FocusTag?
+    let onCreateTag: (String, String) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingNewTagAlert = false
+    @State private var newTagName = ""
+    @State private var newTagColor = "blue"
+    
+    private let availableColors = [
+        ("blue", Color.blue),
+        ("green", Color.green),
+        ("purple", Color.purple),
+        ("orange", Color.orange),
+        ("red", Color.red)
+    ]
+    
+    var body: some View {
+        NavigationView {
+            List {
+                Section {
+                    ForEach(tags, id: \.id) { tag in
+                        Button(action: {
+                            selectedTag = tag
+                            dismiss()
+                        }) {
+                            HStack {
+                                Circle()
+                                    .fill(tagColor(tag.color))
+                                    .frame(width: 20, height: 20)
+                                
+                                Text(tag.name)
+                                    .font(.custom("Geist", size: 17))
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                if selectedTag?.id == tag.id {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                        }
+                    }
+                    
+                    Button(action: { showingNewTagAlert = true }) {
+                        HStack {
+                            Circle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: 20, height: 20)
+                                .overlay(
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.gray)
+                                )
+                            
+                            Text("Create New Tag")
+                                .font(.custom("Geist", size: 17))
+                                .foregroundColor(.blue)
+                            
+                            Spacer()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Select Tag")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .alert("New Tag", isPresented: $showingNewTagAlert) {
+            TextField("Tag name", text: $newTagName)
+            
+            Button("Cancel", role: .cancel) {
+                newTagName = ""
+            }
+            
+            Button("Create") {
+                if !newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    onCreateTag(newTagName, newTagColor)
+                    newTagName = ""
+                    dismiss()
+                }
+            }
+            .disabled(newTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        } message: {
+            Text("Enter a name for your new tag")
+        }
+    }
+    
+    private func tagColor(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
     }
 }
 
