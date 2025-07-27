@@ -183,6 +183,11 @@ struct TimerView: View {
     @State private var quickTaskName = ""
     @State private var selectedTagForQuickTask: FocusTag?
     
+    // Background timing state
+    @State private var sessionStartTime: Date?
+    @State private var sessionEndTime: Date?
+    @State private var lastUpdateTime: Date = Date()
+    
     var timerState: AppTimerState? {
         timerStates.first
     }
@@ -352,6 +357,12 @@ struct TimerView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openTimerTab)) { _ in
             selectedTab = 0 // Switch to timer tab
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Sync timer when app returns from background
+            if isTimerRunning && !isPaused {
+                syncTimerFromBackground()
+            }
         }
     }
     
@@ -864,6 +875,61 @@ struct TimerView: View {
         .frame(maxWidth: .infinity)
     }
     
+    // MARK: - Background Timer Calculation
+    
+    private func updateTimerWithBackgroundCalculation() {
+        guard let sessionStartTime = sessionStartTime,
+              let sessionEndTime = sessionEndTime,
+              isTimerRunning && !isPaused else { return }
+        
+        let now = Date()
+        let actualElapsedTime = now.timeIntervalSince(sessionStartTime)
+        let expectedTotalTime = sessionEndTime.timeIntervalSince(sessionStartTime)
+        
+        // Calculate remaining time based on actual elapsed time
+        let calculatedRemainingTime = max(0, expectedTotalTime - actualElapsedTime)
+        
+        // Update timeRemaining if there's a significant difference (more than 2 seconds)
+        // This accounts for background execution and timer drift
+        if abs(timeRemaining - calculatedRemainingTime) > 2.0 {
+            timeRemaining = calculatedRemainingTime
+            print("🔄 Background sync: Adjusted timer to \(timeString(from: timeRemaining))")
+        } else {
+            // Normal operation - just decrement by 1 second
+            timeRemaining = max(0, timeRemaining - 1)
+        }
+        
+        lastUpdateTime = now
+    }
+    
+    private func syncTimerFromBackground() {
+        guard let sessionStartTime = sessionStartTime,
+              let sessionEndTime = sessionEndTime else { return }
+        
+        let now = Date()
+        let actualElapsedTime = now.timeIntervalSince(sessionStartTime)
+        let expectedTotalTime = sessionEndTime.timeIntervalSince(sessionStartTime)
+        
+        // Calculate remaining time based on actual elapsed time
+        let calculatedRemainingTime = max(0, expectedTotalTime - actualElapsedTime)
+        
+        // Always sync when returning from background
+        timeRemaining = calculatedRemainingTime
+        lastUpdateTime = now
+        
+        print("🔄 Foreground sync: Timer set to \(timeString(from: timeRemaining))")
+        
+        // Update Live Activity with accurate timing
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.updateActivity(remainingTime: timeRemaining)
+        }
+        
+        // Check if timer should complete
+        if timeRemaining <= 0 {
+            completeSession()
+        }
+    }
+    
     // MARK: - Helper Methods
     
     private func setupInitialData() {
@@ -980,6 +1046,11 @@ struct TimerView: View {
             sessionWorkTime = 0
         }
         
+        // Set session timing for background calculation
+        sessionStartTime = Date()
+        sessionEndTime = Date().addingTimeInterval(TimeInterval(sessionDuration))
+        lastUpdateTime = Date()
+        
         // For focus sessions, ensure we have a task (use default "Working" if none selected)
         let taskForSession: Task?
         
@@ -1046,20 +1117,33 @@ struct TimerView: View {
         isTimerRunning = true
         isPaused = false
         
-        // Start Live Activity if available
+        // Start or Update Live Activity if available
         if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
             let sessionType: PomodoroTimerAttributes.ContentState.SessionType = isBreakSession ? .shortBreak : .focus
-            liveActivityManager.startActivity(
-                duration: timeRemaining,
-                sessionType: sessionType,
-                taskName: taskForSession?.title
-            )
+            
+            // Check if Live Activity already exists, update instead of creating new one
+            if liveActivityManager.currentActivity != nil {
+                // Update existing activity with new session type and task
+                liveActivityManager.resumeActivityWithSessionType(
+                    remainingTime: timeRemaining,
+                    sessionType: sessionType,
+                    taskName: taskForSession?.title
+                )
+            } else {
+                // Create new activity only if none exists
+                liveActivityManager.startActivity(
+                    duration: timeRemaining,
+                    sessionType: sessionType,
+                    taskName: taskForSession?.title
+                )
+            }
         }
         
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            // Update timer using background-aware calculation
+            updateTimerWithBackgroundCalculation()
+            
             if timeRemaining > 0 {
-                timeRemaining -= 1
-                
                 // Update Live Activity every 30 seconds to reduce battery impact
                 if Int(timeRemaining) % 30 == 0 {
                     if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
@@ -1077,15 +1161,21 @@ struct TimerView: View {
         isTimerRunning = true
         isPaused = false
         
+        // Update session timing for background calculation
+        sessionStartTime = Date()
+        sessionEndTime = Date().addingTimeInterval(timeRemaining)
+        lastUpdateTime = Date()
+        
         // Resume Live Activity if available
         if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
             liveActivityManager.resumeActivity(remainingTime: timeRemaining)
         }
         
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            // Update timer using background-aware calculation
+            updateTimerWithBackgroundCalculation()
+            
             if timeRemaining > 0 {
-                timeRemaining -= 1
-                
                 // Update Live Activity every 30 seconds to reduce battery impact
                 if Int(timeRemaining) % 30 == 0 {
                     if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
@@ -1199,6 +1289,11 @@ struct TimerView: View {
                 isTimerRunning = true
                 isPaused = false
                 
+                // Update session timing for background calculation
+                sessionStartTime = Date()
+                sessionEndTime = Date().addingTimeInterval(timeRemaining)
+                lastUpdateTime = Date()
+                
                 // Update Live Activity to show focus session and resume
                 if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
                     liveActivityManager.resumeActivityWithSessionType(
@@ -1210,9 +1305,10 @@ struct TimerView: View {
                 
                 // Start the focus timer
                 timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    // Update timer using background-aware calculation
+                    updateTimerWithBackgroundCalculation()
+                    
                     if timeRemaining > 0 {
-                        timeRemaining -= 1
-                        
                         // Update Live Activity every 30 seconds to reduce battery impact
                         if Int(timeRemaining) % 30 == 0 {
                             if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
@@ -1552,6 +1648,11 @@ struct TimerView: View {
                 isTimerRunning = true
                 isPaused = false
                 
+                // Update session timing for background calculation
+                sessionStartTime = Date()
+                sessionEndTime = Date().addingTimeInterval(timeRemaining)
+                lastUpdateTime = Date()
+                
                 // Update Live Activity to show focus session and resume
                 if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
                     liveActivityManager.resumeActivityWithSessionType(
@@ -1563,9 +1664,10 @@ struct TimerView: View {
                 
                 // Start the focus timer
                 timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    // Update timer using background-aware calculation
+                    updateTimerWithBackgroundCalculation()
+                    
                     if timeRemaining > 0 {
-                        timeRemaining -= 1
-                        
                         // Update Live Activity every 30 seconds to reduce battery impact
                         if Int(timeRemaining) % 30 == 0 {
                             if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {

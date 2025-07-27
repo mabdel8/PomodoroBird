@@ -210,7 +210,7 @@ class LiveActivityManager: ObservableObject {
             
             await activity.end(
                 finalContent,
-                dismissalPolicy: completed ? .default : .immediate
+                dismissalPolicy: .immediate
             )
             
             currentActivity = nil
