@@ -22,6 +22,7 @@ struct AnalyticsView: View {
     
     @State private var selectedPeriod: TimePeriod = .weekly
     @State private var currentDate = Date()
+    @State private var showingSessionHistory = false
     
     private var calendar = Calendar.current
     
@@ -34,6 +35,30 @@ struct AnalyticsView: View {
             return "Weekly Focus Time"
         case .yearly:
             return "Monthly Focus Time"
+        }
+    }
+    
+    // Current date string based on selected period
+    private var currentDateString: String {
+        let formatter = DateFormatter()
+        
+        switch selectedPeriod {
+        case .weekly:
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
+            let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? currentDate
+            
+            formatter.dateFormat = "MMM d"
+            let startString = formatter.string(from: weekStart)
+            let endString = formatter.string(from: weekEnd)
+            return "\(startString) - \(endString)"
+            
+        case .monthly:
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: currentDate)
+            
+        case .yearly:
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: currentDate)
         }
     }
     
@@ -70,20 +95,19 @@ struct AnalyticsView: View {
         let calendar = Calendar.current
         var data: [HeatmapDay] = []
         
-        let endDate = Date()
         let startDate: Date
         
         switch selectedPeriod {
         case .weekly:
-            // Show current week (always 7 days starting from week start)
-            let weekStart = calendar.dateInterval(of: .weekOfYear, for: endDate)?.start ?? endDate
+            // Show selected week (always 7 days starting from week start)
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
             startDate = weekStart
         case .monthly:
-            // Show current month (calendar month view)
-            startDate = calendar.dateInterval(of: .month, for: endDate)?.start ?? endDate
+            // Show selected month (calendar month view)
+            startDate = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
         case .yearly:
-            // Show current year from January to December
-            startDate = calendar.dateInterval(of: .year, for: endDate)?.start ?? endDate
+            // Show selected year from January to December
+            startDate = calendar.dateInterval(of: .year, for: currentDate)?.start ?? currentDate
         }
         
         // Group sessions by day
@@ -112,7 +136,7 @@ struct AnalyticsView: View {
                 ))
             }
         case .monthly:
-            let finalDate = calendar.dateInterval(of: .month, for: endDate)?.end ?? endDate
+            let finalDate = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
             while current <= finalDate {
                 let dayStart = calendar.startOfDay(for: current)
                 let sessionsForDay = sessionsByDay[dayStart] ?? []
@@ -127,7 +151,7 @@ struct AnalyticsView: View {
                 current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
             }
         case .yearly:
-            let yearEnd = calendar.dateInterval(of: .year, for: endDate)?.end ?? endDate
+            let yearEnd = calendar.dateInterval(of: .year, for: currentDate)?.end ?? currentDate
             while current <= yearEnd {
                 let dayStart = calendar.startOfDay(for: current)
                 let sessionsForDay = sessionsByDay[dayStart] ?? []
@@ -172,8 +196,8 @@ struct AnalyticsView: View {
         
         switch selectedPeriod {
         case .weekly:
-            // Show daily data for current week
-            let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+            // Show daily data for selected week
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
             for i in 0..<7 {
                 let date = calendar.date(byAdding: .day, value: i, to: weekStart) ?? weekStart
                 let formatter = DateFormatter()
@@ -201,9 +225,9 @@ struct AnalyticsView: View {
             }
             
         case .monthly:
-            // Show weekly data for current month
-            let monthStart = calendar.dateInterval(of: .month, for: Date())?.start ?? Date()
-            let monthEnd = calendar.dateInterval(of: .month, for: Date())?.end ?? Date()
+            // Show weekly data for selected month
+            let monthStart = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
+            let monthEnd = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
             
             var weekStart = calendar.dateInterval(of: .weekOfYear, for: monthStart)?.start ?? monthStart
             var weekNumber = 1
@@ -232,8 +256,8 @@ struct AnalyticsView: View {
             }
             
         case .yearly:
-            // Show monthly data for current year
-            let yearStart = calendar.dateInterval(of: .year, for: Date())?.start ?? Date()
+            // Show monthly data for selected year
+            let yearStart = calendar.dateInterval(of: .year, for: currentDate)?.start ?? currentDate
             for i in 0..<12 {
                 let monthStart = calendar.date(byAdding: .month, value: i, to: yearStart) ?? yearStart
                 let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
@@ -265,16 +289,31 @@ struct AnalyticsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
-                // Header with period selector
-                VStack(spacing: 24) {
+            VStack(spacing: 20) {
+                // Header with date navigation and period selector
+                VStack(spacing: 16) {
+                    // Date navigation
                     HStack {
-                        Text("Analytics")
-                            .font(.custom("Geist", size: 32))
-                            .fontWeight(.bold)
+                        Button(action: navigatePrevious) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.primary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text(currentDateString)
+                            .font(.custom("Geist", size: 20))
+                            .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
                         Spacer()
+                        
+                        Button(action: navigateNext) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.primary)
+                        }
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 16)
@@ -283,11 +322,8 @@ struct AnalyticsView: View {
                     periodSelector
                 }
                 
-                // Stats Overview
-                statsOverview
-                
-                // Heatmap Section
-                heatmapContainer
+                // Stats Overview with History Button
+                statsContainerWithHistoryButton
                 
                 // Pie Chart Section
                 if !pieChartData.isEmpty {
@@ -297,10 +333,16 @@ struct AnalyticsView: View {
                 // Bar Chart Section
                 barChartContainer
                 
+                // Bird Unlocked Section
+                birdUnlockedContainer
+                
                 Spacer(minLength: 100)
             }
         }
         .background(Color(.systemBackground))
+        .sheet(isPresented: $showingSessionHistory) {
+            SessionHistoryView(focusSessions: focusSessions)
+        }
     }
     
     private var periodSelector: some View {
@@ -333,30 +375,175 @@ struct AnalyticsView: View {
         .padding(.horizontal, 24)
     }
     
-    private var statsOverview: some View {
-        HStack(spacing: 16) {
-            StatCard(
-                title: "Total Focus",
-                value: "\(filteredSessions.reduce(0) { $0 + ($1.actualDuration / 60) })",
-                unit: "min",
-                color: .blue
-            )
+    private var statsContainer: some View {
+        let totalMinutes = filteredSessions.reduce(0) { $0 + ($1.actualDuration / 60) }
+        let sessionCount = filteredSessions.count
+        let averageMinutes = sessionCount > 0 ? totalMinutes / sessionCount : 0
+        
+        return VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Overview")
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Button(action: {
+                    showingSessionHistory = true
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 14, weight: .medium))
+                        
+                        Text("History")
+                            .font(.custom("Geist", size: 14))
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.blue.opacity(0.1))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
             
-            StatCard(
-                title: "Sessions",
-                value: "\(filteredSessions.count)",
-                unit: "",
-                color: .green
-            )
+            HStack(spacing: 32) {
+                totalFocusView(totalMinutes: totalMinutes)
+                sessionsView(sessionCount: sessionCount)
+                averageSessionView(averageMinutes: averageMinutes)
+            }
             
-            StatCard(
-                title: "Avg Session",
-                value: filteredSessions.isEmpty ? "0" : "\(filteredSessions.reduce(0) { $0 + ($1.actualDuration / 60) } / filteredSessions.count)",
-                unit: "min",
-                color: .orange
-            )
+            // Most Focused Day
+            mostFocusedDayView
         }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
         .padding(.horizontal, 24)
+    }
+    
+    private var statsContainerWithHistoryButton: some View {
+        statsContainer
+    }
+    
+    private func totalFocusView(totalMinutes: Int) -> some View {
+        VStack(spacing: 8) {
+            Text("\(totalMinutes)")
+                .font(.custom("Geist", size: 28))
+                .fontWeight(.bold)
+                .foregroundColor(.blue)
+            
+            VStack(spacing: 2) {
+                Text("Total Focus")
+                    .font(.custom("Geist", size: 14))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text("minutes")
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func sessionsView(sessionCount: Int) -> some View {
+        VStack(spacing: 8) {
+            Text("\(sessionCount)")
+                .font(.custom("Geist", size: 28))
+                .fontWeight(.bold)
+                .foregroundColor(.green)
+            
+            VStack(spacing: 2) {
+                Text("Sessions")
+                    .font(.custom("Geist", size: 14))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text("completed")
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func averageSessionView(averageMinutes: Int) -> some View {
+        VStack(spacing: 8) {
+            Text("\(averageMinutes)")
+                .font(.custom("Geist", size: 28))
+                .fontWeight(.bold)
+                .foregroundColor(.orange)
+            
+            VStack(spacing: 2) {
+                Text("Avg Session")
+                    .font(.custom("Geist", size: 14))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text("minutes")
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    private var mostFocusedDayView: some View {
+        let dailyTotals = Dictionary(grouping: filteredSessions) { session in
+            calendar.startOfDay(for: session.createdAt)
+        }.mapValues { sessions in
+            sessions.reduce(0) { $0 + ($1.actualDuration / 60) }
+        }
+        
+        let mostFocusedDay = dailyTotals.max { $0.value < $1.value }
+        let formatter = DateFormatter()
+        
+        // Adjust date format based on selected period
+        switch selectedPeriod {
+        case .weekly:
+            formatter.dateFormat = "E, MMM d" // "Fri, Jul 25"
+        case .monthly:
+            formatter.dateFormat = "MMM d" // "Jul 25"
+        case .yearly:
+            formatter.dateFormat = "MMM d, yyyy" // "Jul 25, 2024"
+        }
+        
+        return HStack(spacing: 8) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 16))
+                .foregroundColor(.orange)
+            
+            Text("Most Focused Day")
+                .font(.custom("Geist", size: 16))
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            Group {
+                if let mostDay = mostFocusedDay {
+                    Text("\(formatter.string(from: mostDay.key)), \(mostDay.value) min")
+                        .font(.custom("Geist", size: 16))
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("No data")
+                        .font(.custom("Geist", size: 16))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
     }
     
     private var activityHeatmap: some View {
@@ -540,6 +727,51 @@ struct AnalyticsView: View {
         .padding(.horizontal, 24)
     }
     
+    private var birdUnlockedContainer: some View {
+        HStack {
+            HStack(spacing: 12) {
+                Image(systemName: "bird.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.primary)
+                
+                Text("Bird Unlocked")
+                    .font(.custom("Geist", size: 18))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 12) {
+                Image("robin") // Assuming you have a robin asset
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                    .clipShape(Circle())
+                
+                Text("Robin")
+                    .font(.custom("Geist", size: 18))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+    }
+    
     private var timeDistributionChart: some View {
         VStack(alignment: .leading, spacing: 16) {
             if pieChartData.isEmpty {
@@ -708,6 +940,29 @@ struct AnalyticsView: View {
         }
     }
     
+    // Navigation methods
+    private func navigatePrevious() {
+        switch selectedPeriod {
+        case .weekly:
+            currentDate = calendar.date(byAdding: .weekOfYear, value: -1, to: currentDate) ?? currentDate
+        case .monthly:
+            currentDate = calendar.date(byAdding: .month, value: -1, to: currentDate) ?? currentDate
+        case .yearly:
+            currentDate = calendar.date(byAdding: .year, value: -1, to: currentDate) ?? currentDate
+        }
+    }
+    
+    private func navigateNext() {
+        switch selectedPeriod {
+        case .weekly:
+            currentDate = calendar.date(byAdding: .weekOfYear, value: 1, to: currentDate) ?? currentDate
+        case .monthly:
+            currentDate = calendar.date(byAdding: .month, value: 1, to: currentDate) ?? currentDate
+        case .yearly:
+            currentDate = calendar.date(byAdding: .year, value: 1, to: currentDate) ?? currentDate
+        }
+    }
+    
     private func dayOfWeekShort(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "E"
@@ -767,47 +1022,7 @@ struct AnalyticsView: View {
     }
 }
 
-struct StatCard: View {
-    let title: String
-    let value: String
-    let unit: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(title)
-                .font(.custom("Geist", size: 14))
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-            
-            HStack(alignment: .bottom, spacing: 4) {
-                Text(value)
-                    .font(.custom("Geist", size: 24))
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.custom("Geist", size: 14))
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .offset(y: -2)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(color.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(color.opacity(0.3), lineWidth: 1)
-                )
-        )
-    }
-}
+
 
 // MARK: - Data Models
 
@@ -834,6 +1049,102 @@ struct DailyStatsData {
     let label: String
     let focusMinutes: Int
     let sessionCount: Int
+}
+
+struct SessionHistoryView: View {
+    let focusSessions: [FocusSession]
+    @Environment(\.dismiss) private var dismiss
+    
+    private var recentSessions: [FocusSession] {
+        focusSessions
+            .filter { $0.isCompleted && $0.sessionType == "focus" }
+            .sorted { $0.createdAt > $1.createdAt }
+            .prefix(50)
+            .map { $0 }
+    }
+    
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(recentSessions, id: \.id) { session in
+                    SessionRowView(session: session)
+                }
+            }
+            .navigationTitle("Session History")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                }
+            }
+        }
+    }
+}
+
+struct SessionRowView: View {
+    let session: FocusSession
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(session.taskTitle ?? "Focus Session")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    if let tagName = session.tagName, let tagColor = session.tagColor {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(colorFromString(tagColor))
+                                .frame(width: 8, height: 8)
+                            
+                            Text(tagName)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.light)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(session.actualDuration / 60) min")
+                        .font(.custom("Geist", size: 14))
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                    
+                    Text(dateFormatter.string(from: session.createdAt))
+                        .font(.custom("Geist", size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func colorFromString(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
+    }
 }
 
 #Preview {
