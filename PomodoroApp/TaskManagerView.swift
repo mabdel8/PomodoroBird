@@ -23,6 +23,8 @@ struct TaskManagerView: View {
     @State private var newTaskPlannedDate = Date()
     @State private var isAnimating = false
     @State private var animationDirection: Int = 0 // -1 for left, 1 for right
+    @State private var showTodoSection = true
+    @State private var showCompletedSection = true
     
     private var calendar = Calendar.current
     
@@ -266,31 +268,6 @@ struct TaskManagerView: View {
     
     private var tasksContent: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // Today's Plan Header
-            HStack {
-                Text("Today's Progress")
-                    .font(.custom("Geist", size: 28))
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                if !allTasksForSelectedDate.isEmpty {
-                    Text("\(allTasksForSelectedDate.filter(\.isCompleted).count)/\(allTasksForSelectedDate.count)")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(Color.gray.opacity(0.1))
-                        )
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
-            
             // Tasks List
             if allTasksForSelectedDate.isEmpty {
                 VStack(spacing: 16) {
@@ -320,30 +297,46 @@ struct TaskManagerView: View {
                         let pendingTasks = allTasksForSelectedDate.filter { !$0.isCompleted }
                         if !pendingTasks.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Text("To Do")
-                                        .font(.custom("Geist", size: 18))
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                    
-                                    Spacer()
-                                    
-                                    Text("\(pendingTasks.count)")
-                                        .font(.custom("Geist", size: 14))
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.secondary)
+                                Button(action: { 
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showTodoSection.toggle()
+                                    }
+                                }) {
+                                    HStack {
+                                        Text("To-Do")
+                                            .font(.custom("Geist", size: 18))
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        HStack(spacing: 6) {
+                                            Text("\(pendingTasks.count)")
+                                                .font(.custom("Geist", size: 14))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(.secondary)
+                                            
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                                .rotationEffect(.degrees(showTodoSection ? 0 : -90))
+                                        }
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
                                         .background(
                                             Capsule()
                                                 .fill(Color.blue.opacity(0.1))
                                         )
+                                    }
                                 }
+                                .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 24)
                                 
-                                ForEach(pendingTasks, id: \.id) { task in
-                                    TaskRowView(task: task)
-                                        .padding(.horizontal, 24)
+                                if showTodoSection {
+                                    ForEach(pendingTasks, id: \.id) { task in
+                                        TaskRowView(task: task)
+                                            .padding(.horizontal, 24)
+                                    }
                                 }
                             }
                         }
@@ -352,30 +345,46 @@ struct TaskManagerView: View {
                         let completedTasks = allTasksForSelectedDate.filter { $0.isCompleted }
                         if !completedTasks.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Text("Done")
-                                        .font(.custom("Geist", size: 18))
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.primary)
-                                    
-                                    Spacer()
-                                    
-                                    Text("\(completedTasks.count)")
-                                        .font(.custom("Geist", size: 14))
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.secondary)
+                                Button(action: { 
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showCompletedSection.toggle()
+                                    }
+                                }) {
+                                    HStack {
+                                        Text("Completed")
+                                            .font(.custom("Geist", size: 18))
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        HStack(spacing: 6) {
+                                            Text("\(completedTasks.count)")
+                                                .font(.custom("Geist", size: 14))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(.secondary)
+                                            
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                                .rotationEffect(.degrees(showCompletedSection ? 0 : -90))
+                                        }
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
                                         .background(
                                             Capsule()
                                                 .fill(Color.green.opacity(0.1))
                                         )
+                                    }
                                 }
+                                .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 24)
                                 
-                                ForEach(completedTasks, id: \.id) { task in
-                                    CompletedTaskRowView(task: task, sessions: getSessionsForTask(task))
-                                        .padding(.horizontal, 24)
+                                if showCompletedSection {
+                                    ForEach(completedTasks, id: \.id) { task in
+                                        CompletedTaskRowView(task: task, sessions: getSessionsForTask(task))
+                                            .padding(.horizontal, 24)
+                                    }
                                 }
                             }
                         }
