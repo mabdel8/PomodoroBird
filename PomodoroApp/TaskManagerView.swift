@@ -298,7 +298,7 @@ struct TaskManagerView: View {
                         if !pendingTasks.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Button(action: { 
-                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
                                         showTodoSection.toggle()
                                     }
                                 }) {
@@ -337,6 +337,10 @@ struct TaskManagerView: View {
                                         TaskRowView(task: task)
                                             .padding(.horizontal, 24)
                                     }
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .top).combined(with: .opacity),
+                                        removal: .move(edge: .top).combined(with: .opacity)
+                                    ))
                                 }
                             }
                         }
@@ -346,7 +350,7 @@ struct TaskManagerView: View {
                         if !completedTasks.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Button(action: { 
-                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                    withAnimation(.spring(response: 0.6, dampingFraction: 0.8, blendDuration: 0)) {
                                         showCompletedSection.toggle()
                                     }
                                 }) {
@@ -385,6 +389,10 @@ struct TaskManagerView: View {
                                         CompletedTaskRowView(task: task, sessions: getSessionsForTask(task))
                                             .padding(.horizontal, 24)
                                     }
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .top).combined(with: .opacity),
+                                        removal: .move(edge: .top).combined(with: .opacity)
+                                    ))
                                 }
                             }
                         }
