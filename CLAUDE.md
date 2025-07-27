@@ -44,8 +44,8 @@ All models use denormalized data (storing tag info directly in Task/FocusSession
 # Build the project
 xcodebuild -project PomodoroApp.xcodeproj -scheme PomodoroApp build
 
-# Run on simulator
-xcodebuild -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 'platform=iOS Simulator,name=iPhone 15' build
+# Run on simulator (ALWAYS USE iPhone 16)
+xcodebuild -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 'platform=iOS Simulator,name=iPhone 16' build
 
 # Clean build folder
 xcodebuild -project PomodoroApp.xcodeproj clean
@@ -54,11 +54,11 @@ xcodebuild -project PomodoroApp.xcodeproj clean
 ### Testing
 
 ```bash
-# Run unit tests
-xcodebuild test -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 'platform=iOS Simulator,name=iPhone 15'
+# Run unit tests (ALWAYS USE iPhone 16)
+xcodebuild test -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 'platform=iOS Simulator,name=iPhone 16'
 
 # Run specific test
-xcodebuild test -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:PomodoroAppTests/SpecificTestClass
+xcodebuild test -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:PomodoroAppTests/SpecificTestClass
 ```
 
 ## Code Patterns and Conventions

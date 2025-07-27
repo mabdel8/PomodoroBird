@@ -8,6 +8,8 @@
 import SwiftUI
 import SwiftData
 import Foundation
+import ActivityKit
+import BackgroundTasks
 
 // Custom SVG-inspired icons
 struct CustomPlayIcon: View {
@@ -145,6 +147,9 @@ struct TimerView: View {
     @Query(sort: \FocusSession.createdAt, order: .reverse) private var recentSessions: [FocusSession]
     @Binding var selectedTab: Int
     
+    // Live Activity Manager (iOS 16.1+)
+    @State private var liveActivityManager: LiveActivityManager?
+    
     @State private var selectedTask: Task?
     @State private var selectedDuration: Double = 25.0 // in minutes
     @State private var timeRemaining: TimeInterval = 1500 // 25 minutes in seconds
@@ -171,6 +176,9 @@ struct TimerView: View {
     @State private var newTaskName = ""
     @State private var selectedTagForNewTask: FocusTag?
     @State private var unassignedSession: FocusSession?
+    @State private var showingQuickTaskCreation = false
+    @State private var quickTaskName = ""
+    @State private var selectedTagForQuickTask: FocusTag?
     
     var timerState: AppTimerState? {
         timerStates.first
@@ -193,12 +201,8 @@ struct TimerView: View {
     }
     
     var nextBreakIn: String? {
-        // Show break timer during active focus sessions
-        guard !isBreakSession && isTimerRunning && currentSession != nil else { return nil }
-        let sessionMinutesElapsed = sessionWorkTime + ((Int(totalTime - timeRemaining)) / 60)
-        let minutesUntilBreak = 25 - (sessionMinutesElapsed % 25)
-        if minutesUntilBreak == 25 { return nil }
-        return "Break in \(minutesUntilBreak) min"
+        // No automatic break suggestions - removed per requirements
+        return nil
     }
     
     var body: some View {
@@ -309,6 +313,15 @@ struct TimerView: View {
                 onSkip: skipTaskCreation
             )
         }
+        .sheet(isPresented: $showingQuickTaskCreation) {
+            QuickTaskCreationSheet(
+                taskName: $quickTaskName,
+                selectedTag: $selectedTagForQuickTask,
+                tags: tags,
+                onSave: createQuickTaskAndStartTimer,
+                onCancel: cancelQuickTaskCreation
+            )
+        }
         .overlay {
             if showingCompletionDialog {
                 CompletionPopupView(
@@ -321,12 +334,20 @@ struct TimerView: View {
         .onAppear {
             setupInitialData()
             calculateWorkTimeToday()
+            
+            // Initialize Live Activity Manager if available
+            if #available(iOS 16.1, *) {
+                liveActivityManager = LiveActivityManager()
+            }
         }
         .onChange(of: selectedTab) { oldValue, newValue in
             // If user switches to timer tab while on break, return to focus timer and continue
             if newValue == 0 && isBreakSession {
                 endBreakEarly()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openTimerTab)) { _ in
+            selectedTab = 0 // Switch to timer tab
         }
     }
     
@@ -629,7 +650,7 @@ struct TimerView: View {
         HStack(spacing: 24) {
             if !isTimerRunning && !isPaused {
                 // Smaller circular start button with black and white design
-                Button(action: startTimer) {
+                Button(action: handleStartTimer) {
                     ZStack {
                         // Outer circle with black border
                         Circle()
@@ -649,8 +670,6 @@ struct TimerView: View {
                             .scaleEffect(1.2)
                     }
                 }
-                .disabled(!isBreakSession && selectedTask == nil && !availableTasks.isEmpty)
-                .opacity((!isBreakSession && selectedTask == nil && !availableTasks.isEmpty) ? 0.5 : 1.0)
                 .scaleEffect(isBreakSession ? 0.9 : 1.0)
                 .animation(.easeInOut(duration: 0.2), value: isBreakSession)
                 
@@ -1014,9 +1033,27 @@ struct TimerView: View {
         // Start timer
         isTimerRunning = true
         isPaused = false
+        
+        // Start Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            let sessionType: PomodoroTimerAttributes.ContentState.SessionType = isBreakSession ? .shortBreak : .focus
+            liveActivityManager.startActivity(
+                duration: timeRemaining,
+                sessionType: sessionType,
+                taskName: taskForSession?.title
+            )
+        }
+        
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if timeRemaining > 0 {
                 timeRemaining -= 1
+                
+                // Update Live Activity every 30 seconds to reduce battery impact
+                if Int(timeRemaining) % 30 == 0 {
+                    if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                        liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                    }
+                }
             } else {
                 completeSession()
             }
@@ -1028,9 +1065,21 @@ struct TimerView: View {
         isTimerRunning = true
         isPaused = false
         
+        // Resume Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.resumeActivity(remainingTime: timeRemaining)
+        }
+        
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if timeRemaining > 0 {
                 timeRemaining -= 1
+                
+                // Update Live Activity every 30 seconds to reduce battery impact
+                if Int(timeRemaining) % 30 == 0 {
+                    if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                        liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                    }
+                }
             } else {
                 completeSession()
             }
@@ -1072,6 +1121,11 @@ struct TimerView: View {
         isTimerRunning = false
         isPaused = true
         
+        // Pause Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.pauseActivity()
+        }
+        
         // Update current session with actual time worked
         if let session = currentSession {
             session.actualDuration = Int(totalTime - timeRemaining)
@@ -1089,6 +1143,11 @@ struct TimerView: View {
         timer = nil
         isTimerRunning = false
         isPaused = false
+        
+        // End Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.endCurrentActivity(completed: false)
+        }
         
         // Show completion dialog for focus sessions
         if let session = currentSession, !isBreakSession {
@@ -1267,6 +1326,52 @@ struct TimerView: View {
         finishSessionCompletion()
     }
     
+    private func handleStartTimer() {
+        // Check if we have a selected task or if it's a break session
+        if selectedTask != nil || isBreakSession {
+            startTimer()
+        } else {
+            // No task selected - show quick task creation popup
+            showingQuickTaskCreation = true
+        }
+    }
+    
+    private func createQuickTaskAndStartTimer() {
+        guard !quickTaskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        // Create new task
+        let task = Task(
+            title: quickTaskName.trimmingCharacters(in: .whitespacesAndNewlines),
+            duration: Int(selectedDuration), // Use current timer duration
+            tag: selectedTagForQuickTask,
+            plannedDate: Date()
+        )
+        modelContext.insert(task)
+        
+        // Set as selected task
+        selectedTask = task
+        
+        // Reset quick task creation state
+        quickTaskName = ""
+        selectedTagForQuickTask = nil
+        showingQuickTaskCreation = false
+        
+        // Start timer with the new task
+        startTimer()
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving quick task: \(error)")
+        }
+    }
+    
+    private func cancelQuickTaskCreation() {
+        quickTaskName = ""
+        selectedTagForQuickTask = nil
+        showingQuickTaskCreation = false
+    }
+    
     private func endBreakEarly() {
         // End break session and return to focus
         timer?.invalidate()
@@ -1315,6 +1420,11 @@ struct TimerView: View {
         timer = nil
         isTimerRunning = false
         isPaused = false
+        
+        // End Live Activity if available (marked as completed)
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.endCurrentActivity(completed: true)
+        }
         
         // Mark session as completed
         if let session = currentSession {
@@ -1865,6 +1975,99 @@ struct TaskCreationTagChip: View {
         .scaleEffect(isSelected ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isSelected)
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct QuickTaskCreationSheet: View {
+    @Binding var taskName: String
+    @Binding var selectedTag: FocusTag?
+    let tags: [FocusTag]
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 32) {
+                VStack(spacing: 16) {
+                    Text("Create Task to Start")
+                        .font(.custom("Geist", size: 24))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    Text("What would you like to focus on?")
+                        .font(.custom("Geist", size: 16))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                
+                VStack(spacing: 24) {
+                    // Task Name Input
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Task Name")
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        TextField("Enter task name", text: $taskName)
+                            .font(.custom("Geist", size: 16))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.gray.opacity(0.08))
+                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                    }
+                    
+                    // Tag Selection
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Category (Optional)")
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+                            ForEach(tags, id: \.id) { tag in
+                                TaskCreationTagChip(
+                                    tag: tag,
+                                    isSelected: selectedTag?.id == tag.id
+                                ) {
+                                    selectedTag = selectedTag?.id == tag.id ? nil : tag
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            .navigationTitle("Quick Start")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .foregroundColor(.secondary)
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Start Timer") {
+                        onSave()
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 17))
+                    .fontWeight(.semibold)
+                    .foregroundColor(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                    .disabled(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
 }
 
