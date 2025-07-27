@@ -1174,13 +1174,41 @@ struct TimerView: View {
                 session.isCompleted = true
             }
             
-            // Break completed, return to focus session if it exists
+            // Break completed, return to focus session if it exists and auto-resume
             if let focusSession = pausedFocusSession {
                 isBreakSession = false
                 timeRemaining = pausedFocusTimeRemaining
                 totalTime = pausedFocusTotalTime
                 currentSession = focusSession
-                isPaused = true // Set to paused so user can resume
+                
+                // Auto-resume the focus timer instead of requiring manual resume
+                isTimerRunning = true
+                isPaused = false
+                
+                // Update Live Activity to show focus session and resume
+                if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                    liveActivityManager.resumeActivityWithSessionType(
+                        remainingTime: timeRemaining,
+                        sessionType: .focus,
+                        taskName: selectedTask?.title
+                    )
+                }
+                
+                // Start the focus timer
+                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    if timeRemaining > 0 {
+                        timeRemaining -= 1
+                        
+                        // Update Live Activity every 30 seconds to reduce battery impact
+                        if Int(timeRemaining) % 30 == 0 {
+                            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                                liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                            }
+                        }
+                    } else {
+                        completeSession()
+                    }
+                }
                 
                 // Clear stored state
                 pausedFocusSession = nil
@@ -1386,19 +1414,52 @@ struct TimerView: View {
             session.actualDuration = Int(totalTime - timeRemaining)
         }
         
-        // Return to paused focus session if it exists
+        // Return to focus session if it exists and auto-resume
         if let focusSession = pausedFocusSession {
             isBreakSession = false
             timeRemaining = pausedFocusTimeRemaining
             totalTime = pausedFocusTotalTime
             currentSession = focusSession
-            isPaused = true // Set to paused so user can resume
+            
+            // Auto-resume the focus timer instead of requiring manual resume
+            isTimerRunning = true
+            isPaused = false
+            
+            // Update Live Activity to show focus session and resume
+            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                liveActivityManager.resumeActivityWithSessionType(
+                    remainingTime: timeRemaining,
+                    sessionType: .focus,
+                    taskName: selectedTask?.title
+                )
+            }
+            
+            // Start the focus timer
+            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                if timeRemaining > 0 {
+                    timeRemaining -= 1
+                    
+                    // Update Live Activity every 30 seconds to reduce battery impact
+                    if Int(timeRemaining) % 30 == 0 {
+                        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                            liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                        }
+                    }
+                } else {
+                    completeSession()
+                }
+            }
         } else {
             // No previous focus session, reset normally
             isBreakSession = false
             timeRemaining = selectedDuration * 60
             totalTime = selectedDuration * 60
             currentSession = nil
+            
+            // End Live Activity since no focus session to return to
+            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                liveActivityManager.endCurrentActivity(completed: false)
+            }
         }
         
         // Clear stored focus session state
@@ -1461,13 +1522,41 @@ struct TimerView: View {
         }
         
         if isBreakSession {
-            // Break completed, return to focus session if it exists
+            // Break completed, return to focus session if it exists and auto-resume
             if let focusSession = pausedFocusSession {
                 isBreakSession = false
                 timeRemaining = pausedFocusTimeRemaining
                 totalTime = pausedFocusTotalTime
                 currentSession = focusSession
-                isPaused = true // Set to paused so user can resume
+                
+                // Auto-resume the focus timer instead of requiring manual resume
+                isTimerRunning = true
+                isPaused = false
+                
+                // Update Live Activity to show focus session and resume
+                if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                    liveActivityManager.resumeActivityWithSessionType(
+                        remainingTime: timeRemaining,
+                        sessionType: .focus,
+                        taskName: selectedTask?.title
+                    )
+                }
+                
+                // Start the focus timer
+                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    if timeRemaining > 0 {
+                        timeRemaining -= 1
+                        
+                        // Update Live Activity every 30 seconds to reduce battery impact
+                        if Int(timeRemaining) % 30 == 0 {
+                            if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+                                liveActivityManager.updateActivity(remainingTime: timeRemaining)
+                            }
+                        }
+                    } else {
+                        completeSession()
+                    }
+                }
                 
                 // Clear stored state
                 pausedFocusSession = nil

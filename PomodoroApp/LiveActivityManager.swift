@@ -133,6 +133,34 @@ class LiveActivityManager: ObservableObject {
         }
     }
     
+    func resumeActivityWithSessionType(remainingTime: TimeInterval, sessionType: PomodoroTimerAttributes.ContentState.SessionType, taskName: String?) {
+        guard let activity = currentActivity else { return }
+        
+        AsyncTask {
+            let currentState = activity.content.state
+            let newEndTime = Date().addingTimeInterval(remainingTime)
+            
+            let updatedState = PomodoroTimerAttributes.ContentState(
+                timerEnd: newEndTime,
+                sessionType: sessionType,
+                taskName: taskName,
+                isPaused: false,
+                totalDuration: currentState.totalDuration,
+                remainingTime: remainingTime
+            )
+            
+            let updatedContent = ActivityContent(
+                state: updatedState,
+                staleDate: Calendar.current.date(byAdding: .minute, value: 30, to: Date())
+            )
+            
+            await activity.update(updatedContent)
+            saveActivityState(activity: activity, state: updatedState)
+            
+            print("▶️ Resumed Live Activity with session type: \(sessionType.displayName)")
+        }
+    }
+    
     func updateActivity(remainingTime: TimeInterval) {
         guard let activity = currentActivity else { return }
         

@@ -86,7 +86,7 @@ xcodebuild test -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 
 ### Key Implementation Details
 
 1. **Timer Logic**: Uses `Timer.scheduledTimer` with 1-second intervals
-2. **Break System**: Stores paused focus session state when break is initiated
+2. **Break System**: Stores paused focus session state when break is initiated, auto-resumes focus timer when break ends
 3. **Task Association**: Tasks linked to sessions via UUID references
 4. **Progress Tracking**: Calculates daily work time from completed focus sessions
 5. **Tape Measure Time Selector**: Horizontal scrolling time picker with automatic selection
@@ -95,6 +95,22 @@ xcodebuild test -project PomodoroApp.xcodeproj -scheme PomodoroApp -destination 
    - Automatic selection based on which tick is closest to screen center (±20pt threshold)
    - No manual tapping required - selection updates during scroll
    - Clean interface without overlay indicators or reference lines
+
+### Live Activity Implementation
+
+6. **iOS Live Activities**: Real-time timer display on Lock Screen and Dynamic Island (iOS 16.1+)
+   - **Architecture**: Uses ActivityKit with `PomodoroTimerAttributes` for session data
+   - **Live Activity Manager**: `LiveActivityManager` handles activity lifecycle (start/pause/resume/end)
+   - **Session Types**: Supports Focus (.focus) and Break (.shortBreak/.longBreak) with distinct colors/icons
+   - **Real-time Updates**: Updates every 30 seconds to balance battery life and accuracy
+   - **Auto Session Switching**: Automatically updates session type when transitioning between focus/break
+   - **UI Design**: Clean modern design with proper padding (24pt), no borders, vertical layout
+     - Top: Session type with icon + status badge (Active/Paused)
+     - Center: Large prominent timer with task name
+     - Bottom: Progress bar with elapsed/remaining time indicators
+   - **Dynamic Island**: Compact display with session icon, timer, and status
+   - **Break Flow Integration**: Live Activity correctly shows "Break" during breaks and switches back to "Focus Time" with task name when break ends
+   - **Auto-Resume**: When breaks end (manually or automatically), focus timer auto-resumes without manual interaction
 
 ## Important Notes
 
