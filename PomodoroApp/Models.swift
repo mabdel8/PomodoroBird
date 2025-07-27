@@ -66,6 +66,7 @@ final class FocusSession {
     var actualDuration: Int
     var isCompleted: Bool
     var wasBreakTaken: Bool
+    var breakDuration: Int // Total break time in seconds
     var startTime: Date?
     var endTime: Date?
     var createdAt: Date
@@ -84,6 +85,7 @@ final class FocusSession {
         self.actualDuration = 0
         self.isCompleted = false
         self.wasBreakTaken = false
+        self.breakDuration = 0
         self.startTime = nil
         self.endTime = nil
         self.createdAt = Date()

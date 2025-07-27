@@ -32,10 +32,43 @@ struct TaskManagerView: View {
         return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
     }
     
-    // Filter tasks for the selected date
+    // Filter tasks for the selected date (only incomplete tasks)
     private var tasksForSelectedDate: [Task] {
         return allTasks.filter { task in
-            calendar.isDate(task.plannedDate, inSameDayAs: selectedDate)
+            calendar.isDate(task.plannedDate, inSameDayAs: selectedDate) && !task.isCompleted
+        }
+    }
+    
+    // Get completed sessions for the selected date (including default working tasks)
+    private var completedSessionsForSelectedDate: [FocusSession] {
+        return focusSessions.filter { session in
+            session.isCompleted && calendar.isDate(session.createdAt, inSameDayAs: selectedDate)
+        }
+    }
+    
+    // Get tasks that were completed through timer sessions but don't have a manually created task
+    private var timerCompletedTasksForDate: [Task] {
+        let manualTaskIds = Set(tasksForSelectedDate.map { $0.id })
+        let sessionTaskIds = completedSessionsForSelectedDate.compactMap { $0.taskId }
+        
+        return allTasks.filter { task in
+            task.isCompleted &&
+            calendar.isDate(task.completedAt ?? task.createdAt, inSameDayAs: selectedDate) &&
+            !manualTaskIds.contains(task.id) &&
+            sessionTaskIds.contains(task.id)
+        }
+    }
+    
+    // Combined tasks for display (manual + timer completed)
+    private var allTasksForSelectedDate: [Task] {
+        var combined = tasksForSelectedDate
+        combined.append(contentsOf: timerCompletedTasksForDate)
+        return combined.sorted { task1, task2 in
+            // Sort by completion status first (incomplete first), then by creation time
+            if task1.isCompleted != task2.isCompleted {
+                return !task1.isCompleted
+            }
+            return task1.createdAt > task2.createdAt
         }
     }
     
@@ -235,15 +268,15 @@ struct TaskManagerView: View {
         VStack(alignment: .leading, spacing: 20) {
             // Today's Plan Header
             HStack {
-                Text("Today's Plan")
+                Text("Today's Progress")
                     .font(.custom("Geist", size: 28))
                     .fontWeight(.medium)
                     .foregroundColor(.primary)
                 
                 Spacer()
                 
-                if !tasksForSelectedDate.isEmpty {
-                    Text("\(tasksForSelectedDate.filter(\.isCompleted).count)/\(tasksForSelectedDate.count)")
+                if !allTasksForSelectedDate.isEmpty {
+                    Text("\(allTasksForSelectedDate.filter(\.isCompleted).count)/\(allTasksForSelectedDate.count)")
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
@@ -259,7 +292,7 @@ struct TaskManagerView: View {
             .padding(.top, 8)
             
             // Tasks List
-            if tasksForSelectedDate.isEmpty {
+            if allTasksForSelectedDate.isEmpty {
                 VStack(spacing: 16) {
                     Spacer()
                     
@@ -267,12 +300,12 @@ struct TaskManagerView: View {
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
                     
-                    Text("No tasks planned")
+                    Text("No tasks completed")
                         .font(.custom("Geist", size: 20))
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
-                    Text("Add a task for \(selectedDateText)")
+                    Text("Start a focus session to track your work")
                         .font(.custom("Geist", size: 16))
                         .fontWeight(.light)
                         .foregroundColor(.secondary.opacity(0.7))
@@ -282,14 +315,76 @@ struct TaskManagerView: View {
                 .frame(maxWidth: .infinity)
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(tasksForSelectedDate, id: \.id) { task in
-                            TaskRowView(task: task) {
-                                toggleTaskCompletion(task)
+                    LazyVStack(spacing: 16) {
+                        // Pending Tasks Section
+                        let pendingTasks = allTasksForSelectedDate.filter { !$0.isCompleted }
+                        if !pendingTasks.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("To Do")
+                                        .font(.custom("Geist", size: 18))
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(pendingTasks.count)")
+                                        .font(.custom("Geist", size: 14))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.blue.opacity(0.1))
+                                        )
+                                }
+                                .padding(.horizontal, 24)
+                                
+                                ForEach(pendingTasks, id: \.id) { task in
+                                    TaskRowView(task: task) {
+                                        toggleTaskCompletion(task)
+                                    }
+                                    .padding(.horizontal, 24)
+                                }
+                            }
+                        }
+                        
+                        // Completed Tasks Section
+                        let completedTasks = allTasksForSelectedDate.filter { $0.isCompleted }
+                        if !completedTasks.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Text("Done")
+                                        .font(.custom("Geist", size: 18))
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.primary)
+                                    
+                                    Spacer()
+                                    
+                                    Text("\(completedTasks.count)")
+                                        .font(.custom("Geist", size: 14))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.green.opacity(0.1))
+                                        )
+                                }
+                                .padding(.horizontal, 24)
+                                
+                                ForEach(completedTasks, id: \.id) { task in
+                                    CompletedTaskRowView(task: task, sessions: getSessionsForTask(task)) {
+                                        toggleTaskCompletion(task)
+                                    }
+                                    .padding(.horizontal, 24)
+                                }
                             }
                         }
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
                     .padding(.bottom, 100) // Space for floating button
                 }
             }
@@ -379,6 +474,12 @@ struct TaskManagerView: View {
             print("Error updating task: \(error)")
         }
     }
+    
+    private func getSessionsForTask(_ task: Task) -> [FocusSession] {
+        return focusSessions.filter { session in
+            session.taskId == task.id && session.isCompleted
+        }
+    }
 }
 
 struct TaskRowView: View {
@@ -448,6 +549,153 @@ struct TaskRowView: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.gray.opacity(0.05))
+        )
+        .contentShape(Rectangle())
+    }
+}
+
+struct CompletedTaskRowView: View {
+    let task: Task
+    let sessions: [FocusSession]
+    let onToggle: () -> Void
+    
+    var tagColor: Color {
+        guard let colorString = task.tagColor else { return .gray }
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .gray
+        }
+    }
+    
+    var totalTimeSpent: Int {
+        // actualDuration is in seconds, convert to minutes
+        return sessions.reduce(0) { total, session in
+            total + (session.actualDuration / 60)
+        }
+    }
+    
+    var totalBreakTime: Int {
+        // breakDuration is in seconds, convert to minutes
+        return sessions.reduce(0) { total, session in
+            total + (session.breakDuration / 60)
+        }
+    }
+    
+    var formattedTime: String {
+        let hours = totalTimeSpent / 60
+        let minutes = totalTimeSpent % 60
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else {
+            return "\(minutes)m"
+        }
+    }
+    
+    var formattedBreakTime: String {
+        if totalBreakTime > 0 {
+            return "\(totalBreakTime)m"
+        } else {
+            return "0m"
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Completion circle
+            Button(action: onToggle) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.green)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text(task.title)
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                    .strikethrough(true)
+                
+                HStack(spacing: 8) {
+                    if let tagName = task.tagName {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(tagColor)
+                                .frame(width: 8, height: 8)
+                            
+                            Text(tagName)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.light)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Time spent badge
+                    if totalTimeSpent > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.green)
+                            
+                            Text(formattedTime)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.medium)
+                                .foregroundColor(.green)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(.green.opacity(0.1))
+                        )
+                    }
+                    
+                    // Break time badge
+                    if totalBreakTime > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "cup.and.heat.waves")
+                                .font(.system(size: 10))
+                                .foregroundColor(.orange)
+                            
+                            Text(formattedBreakTime)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.medium)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(.orange.opacity(0.1))
+                        )
+                    }
+                    
+                    // Sessions count
+                    if sessions.count > 0 {
+                        Text("\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.light)
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.green.opacity(0.03))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                )
         )
         .contentShape(Rectangle())
     }
