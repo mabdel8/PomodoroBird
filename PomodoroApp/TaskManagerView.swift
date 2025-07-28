@@ -864,6 +864,7 @@ struct NewTaskSheet: View {
                                             .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
                                     )
                             )
+                            .submitLabel(.done)
                     }
                     
                     // Date and Duration Section
