@@ -716,9 +716,22 @@ struct NewTaskSheet: View {
     let onCancel: () -> Void
     
     @State private var durationText: String = "25"
+    @State private var selectedHours: Int = 0
+    @State private var selectedMinutes: Int = 25
+    @State private var showingDurationPicker = false
     
     private var isFormValid: Bool {
         !taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedTag != nil
+    }
+    
+    private func updateTaskDuration() {
+        taskDuration = selectedHours * 60 + selectedMinutes
+        durationText = "\(taskDuration)"
+    }
+    
+    private func provideHapticFeedback() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
     }
     
     private func tagColor(_ colorString: String) -> Color {
@@ -769,9 +782,17 @@ struct NewTaskSheet: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
-                        DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
-                            .datePickerStyle(CompactDatePickerStyle())
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack(spacing: 12) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 20))
+                                .foregroundColor(.primary)
+                            
+                            DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
+                                .datePickerStyle(CompactDatePickerStyle())
+                                .labelsHidden()
+                            
+                            Spacer()
+                        }
                     }
                     
                     // Duration Section
@@ -781,39 +802,98 @@ struct NewTaskSheet: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
-                        HStack(spacing: 16) {
-                            Slider(value: Binding(
-                                get: { Double(taskDuration) },
-                                set: { newValue in
-                                    taskDuration = Int(newValue)
-                                    durationText = "\(taskDuration)"
-                                }
-                            ), in: 5...120, step: 1)
-                            .accentColor(.blue)
-                            
-                            HStack(spacing: 4) {
-                                TextField("25", text: $durationText)
-                                    .font(.custom("Geist", size: 16))
-                                    .fontWeight(.medium)
-                                    .keyboardType(.numberPad)
-                                    .frame(width: 40)
-                                    .multilineTextAlignment(.center)
-                                    .onChange(of: durationText) { oldValue, newValue in
-                                        if let duration = Int(newValue), duration >= 5, duration <= 120 {
-                                            taskDuration = duration
-                                        }
-                                    }
-                                
-                                Text("min")
-                                    .font(.custom("Geist", size: 16))
-                                    .foregroundColor(.secondary)
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showingDurationPicker.toggle()
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
+                        }) {
+                            HStack {
+                                Text(taskDuration >= 60 ? "\(taskDuration / 60) h \(taskDuration % 60) m" : "\(taskDuration) m")
+                                    .font(.custom("Geist", size: 16))
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                    .rotationEffect(.degrees(showingDurationPicker ? 180 : 0))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
                             .background(
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.gray.opacity(0.1))
                             )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        if showingDurationPicker {
+                            HStack(spacing: 0) {
+                                Spacer()
+                                
+                                // Hours Picker
+                                Picker("Hours", selection: $selectedHours) {
+                                    ForEach(0...1, id: \.self) { hour in
+                                        Text("\(hour)")
+                                            .font(.custom("Geist", size: 24))
+                                            .tag(hour)
+                                    }
+                                }
+                                .pickerStyle(WheelPickerStyle())
+                                .frame(width: 80)
+                                .clipped()
+                                .onChange(of: selectedHours) { oldValue, newValue in
+                                    provideHapticFeedback()
+                                    // Ensure minimum 1 minute if both hours and minutes are 0
+                                    if newValue == 0 && selectedMinutes == 0 {
+                                        selectedMinutes = 1
+                                    }
+                                    updateTaskDuration()
+                                }
+                                
+                                Text("h")
+                                    .font(.custom("Geist", size: 20))
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 12)
+                                
+                                // Minutes Picker
+                                Picker("Minutes", selection: $selectedMinutes) {
+                                    ForEach(0...59, id: \.self) { minute in
+                                        Text("\(minute)")
+                                            .font(.custom("Geist", size: 24))
+                                            .tag(minute)
+                                    }
+                                }
+                                .pickerStyle(WheelPickerStyle())
+                                .frame(width: 80)
+                                .clipped()
+                                .onChange(of: selectedMinutes) { oldValue, newValue in
+                                    provideHapticFeedback()
+                                    // Ensure minimum 1 minute if both hours and minutes are 0
+                                    if selectedHours == 0 && newValue == 0 {
+                                        selectedMinutes = 1
+                                    }
+                                    updateTaskDuration()
+                                }
+                                
+                                Text("m")
+                                    .font(.custom("Geist", size: 20))
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 12)
+                                
+                                Spacer()
+                            }
+                            .frame(height: 150)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            )
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                removal: .scale(scale: 0.95).combined(with: .opacity)
+                            ))
                         }
                     }
                     
@@ -889,6 +969,8 @@ struct NewTaskSheet: View {
         }
         .onAppear {
             durationText = "\(taskDuration)"
+            selectedHours = taskDuration / 60
+            selectedMinutes = taskDuration % 60
         }
     }
 }
@@ -979,6 +1061,8 @@ struct ModernTagSelectionChip: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
+
+
 
 #Preview {
     TaskManagerView()
