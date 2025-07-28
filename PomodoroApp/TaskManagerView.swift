@@ -833,22 +833,22 @@ struct NewTaskSheet: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 32) {
                     // Header Section
                     VStack(spacing: 8) {
                         Text("Add Task")
-                            .font(.system(size: 20, weight: .semibold, design: .default))
+                            .font(.system(size: 24, weight: .semibold, design: .default))
                             .foregroundColor(.primary)
                     }
                     .padding(.top, 32)
                     .padding(.bottom, 16)
                     
                     // Task Name Section
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Task Name")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.bold)
-                            .foregroundColor(Color(hex: "6E6E6E"))
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
                         
                         TextField("Enter task name", text: $taskTitle)
                             .font(.custom("Geist", size: 16))
@@ -867,14 +867,14 @@ struct NewTaskSheet: View {
                     }
                     
                     // Date and Duration Section
-                    VStack(spacing: 12) {
+                    VStack(spacing: 16) {
                         HStack(spacing: 12) {
                             // Date Section
-                            VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 12) {
                                 Text("Date")
-                                    .font(.custom("Geist", size: 18))
-                                    .fontWeight(.bold)
-                                    .foregroundColor(Color(hex: "6E6E6E"))
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.black)
                                 
                                 Button(action: {
                                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -882,17 +882,17 @@ struct NewTaskSheet: View {
                                         showDatePicker.toggle()
                                     }
                                 }) {
-                                    HStack {
+                                    HStack(alignment: .center, spacing: 5) {
                                         Image(systemName: "calendar")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.secondary)
-                                        
-                                        Spacer()
+                                            .foregroundColor(.black)
                                         
                                         Text(plannedDate, style: .date)
                                             .foregroundColor(.black)
                                             .font(.custom("Geist", size: 16))
                                             .fontWeight(.medium)
+                                        
+                                        Spacer()
                                         
                                         Image(systemName: "chevron.down")
                                             .font(.system(size: 14))
@@ -915,11 +915,11 @@ struct NewTaskSheet: View {
                             }
                             
                             // Duration Section
-                            VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 12) {
                                 Text("Duration")
-                                    .font(.custom("Geist", size: 18))
-                                    .fontWeight(.bold)
-                                    .foregroundColor(Color(hex: "6E6E6E"))
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.black)
                                 
                                 Button(action: {
                                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -927,10 +927,10 @@ struct NewTaskSheet: View {
                                         showingDurationPicker.toggle()
                                     }
                                 }) {
-                                    HStack {
+                                    HStack(alignment: .center, spacing: 10) {
                                         Image(systemName: "clock")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(.black)
                                         
                                         Text(taskDuration >= 60 ? "\(taskDuration / 60) h \(taskDuration % 60) m" : "\(taskDuration) m")
                                             .font(.custom("Geist", size: 16))
@@ -1055,11 +1055,11 @@ struct NewTaskSheet: View {
                     }
                     
                     // Category Section
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Category")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.bold)
-                            .foregroundColor(Color(hex: "6E6E6E"))
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
                         
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
                             ForEach(tags, id: \.id) { tag in
