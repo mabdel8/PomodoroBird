@@ -753,7 +753,7 @@ struct NewTaskSheet: View {
                     // Header Section
                     VStack(spacing: 8) {
                         Text("Add Task")
-                            .font(.custom("Geist", size: 28))
+                            .font(.custom("Geist", size: 24))
                             .fontWeight(.bold)
                             .foregroundColor(.primary)
                     }
@@ -772,7 +772,11 @@ struct NewTaskSheet: View {
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.1))
+                                    .fill(Color.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                    )
                             )
                     }
                     
@@ -794,6 +798,16 @@ struct NewTaskSheet: View {
                                 .datePickerStyle(CompactDatePickerStyle())
                                 .labelsHidden()
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.white)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                )
+                        )
                     }
                     
                     // Duration Section
@@ -824,7 +838,11 @@ struct NewTaskSheet: View {
                             .padding(.vertical, 12)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.1))
+                                    .fill(Color.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                    )
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -928,10 +946,10 @@ struct NewTaskSheet: View {
                                     .padding(.vertical, 16)
                                     .background(
                                         RoundedRectangle(cornerRadius: 12)
-                                            .fill(selectedTag?.id == tag.id ? tagColor(tag.color).opacity(0.1) : Color.gray.opacity(0.1))
+                                            .fill(selectedTag?.id == tag.id ? tagColor(tag.color).opacity(0.1) : Color.white)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(selectedTag?.id == tag.id ? tagColor(tag.color) : Color.clear, lineWidth: 2)
+                                                    .stroke(selectedTag?.id == tag.id ? tagColor(tag.color) : Color.gray.opacity(0.1), lineWidth: 1)
                                             )
                                     )
                                 }
