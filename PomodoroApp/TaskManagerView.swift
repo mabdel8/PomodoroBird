@@ -171,27 +171,28 @@ struct TaskManagerView: View {
     private var calendarHeader: some View {
         VStack(spacing: 16) {
             // Date header with streak
-            HStack {
-                Spacer()
-                
+            ZStack {
+                // Centered date
                 Text(selectedDateHeaderText)
                     .font(.custom("Geist", size: 24))
                     .fontWeight(.medium)
                     .foregroundColor(.primary)
                 
-                Spacer()
-                
-                // Streak display (always shown)
-                HStack(spacing: 4) {
-                    Image("fire")
-                        .resizable()
-                        .frame(width: 16, height: 16)
-                        .foregroundColor(.orange)
+                // Streak display (positioned absolutely on the right)
+                HStack {
+                    Spacer()
                     
-                    Text("\(currentStreak)")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.black)
+                    HStack(spacing: 4) {
+                        Image("fire")
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                            .foregroundColor(.orange)
+                        
+                        Text("\(currentStreak)")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -782,16 +783,16 @@ struct NewTaskSheet: View {
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
                         
-                        HStack(spacing: 12) {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 20))
-                                .foregroundColor(.primary)
+                        HStack {
+                            Text("Date selected")
+                                .font(.custom("Geist", size: 16))
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
                             
                             DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
                                 .datePickerStyle(CompactDatePickerStyle())
                                 .labelsHidden()
-                            
-                            Spacer()
                         }
                     }
                     
