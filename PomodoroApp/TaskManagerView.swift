@@ -8,6 +8,33 @@
 import SwiftUI
 import SwiftData
 
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 struct TaskManagerView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Task.createdAt, order: .reverse) private var allTasks: [Task]
@@ -142,7 +169,7 @@ struct TaskManagerView: View {
                                 .frame(width: 56, height: 56)
                                 .background(
                                     Circle()
-                                        .fill(Color.red)
+                                        .fill(Color.black)
                                         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
                                 )
                         }
@@ -215,7 +242,7 @@ struct TaskManagerView: View {
                                 .frame(width: 32, height: 32)
                                 .background(
                                     Circle()
-                                        .fill(calendar.isDate(date, inSameDayAs: selectedDate) ? Color.red : Color.clear)
+                                        .fill(calendar.isDate(date, inSameDayAs: selectedDate) ? Color.black : Color.clear)
                                 )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -263,8 +290,8 @@ struct TaskManagerView: View {
                     }
             )
         }
-        .padding(.bottom, 24)
-        .background(Color.gray.opacity(0.05))
+        .padding(.bottom, 28)
+        .background(Color.white)
     }
     
     private var tasksContent: some View {
@@ -326,12 +353,19 @@ struct TaskManagerView: View {
                                         .padding(.vertical, 4)
                                         .background(
                                             Capsule()
-                                                .fill(Color.blue.opacity(0.1))
+                                                .fill(Color.black.opacity(0.1))
                                         )
                                     }
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 24)
+                                
+                                // Divider line
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 24)
+                                    .padding(.top, 8)
                                 
                                 if showTodoSection {
                                     ForEach(pendingTasks, id: \.id) { task in
@@ -378,12 +412,19 @@ struct TaskManagerView: View {
                                         .padding(.vertical, 4)
                                         .background(
                                             Capsule()
-                                                .fill(Color.green.opacity(0.1))
+                                                .fill(Color.black.opacity(0.1))
                                         )
                                     }
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 24)
+                                
+                                // Divider line
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 24)
+                                    .padding(.top, 8)
                                 
                                 if showCompletedSection {
                                     ForEach(completedTasks, id: \.id) { task in
@@ -516,12 +557,12 @@ struct TaskRowView: View {
             // Completion circle (non-interactive)
             Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.title2)
-                .foregroundColor(task.isCompleted ? .green : .secondary)
+                .foregroundColor(task.isCompleted ? .black : .secondary)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.custom("Geist", size: 16))
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
                     .foregroundColor(task.isCompleted ? .secondary : .primary)
                     .strikethrough(task.isCompleted)
                 
@@ -542,12 +583,12 @@ struct TaskRowView: View {
                     Text("\(task.duration) min")
                         .font(.custom("Geist", size: 12))
                         .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.blue.opacity(0.1))
+                                .fill(Color.black.opacity(0.1))
                         )
                 }
             }
@@ -558,7 +599,11 @@ struct TaskRowView: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.05))
+                .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                )
         )
         .contentShape(Rectangle())
     }
@@ -618,12 +663,12 @@ struct CompletedTaskRowView: View {
             // Completion circle (non-interactive)
             Image(systemName: "checkmark.circle.fill")
                 .font(.title2)
-                .foregroundColor(.green)
+                .foregroundColor(.black)
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(task.title)
                     .font(.custom("Geist", size: 16))
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
                     .foregroundColor(.secondary)
                     .strikethrough(true)
                 
@@ -646,18 +691,18 @@ struct CompletedTaskRowView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "clock.fill")
                                 .font(.system(size: 10))
-                                .foregroundColor(.green)
+                                .foregroundColor(.black)
                             
                             Text(formattedTime)
                                 .font(.custom("Geist", size: 12))
                                 .fontWeight(.medium)
-                                .foregroundColor(.green)
+                                .foregroundColor(.black)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.green.opacity(0.1))
+                                .fill(Color.black.opacity(0.1))
                         )
                     }
                     
@@ -666,18 +711,18 @@ struct CompletedTaskRowView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "cup.and.heat.waves")
                                 .font(.system(size: 10))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.black)
                             
                             Text(formattedBreakTime)
                                 .font(.custom("Geist", size: 12))
                                 .fontWeight(.medium)
-                                .foregroundColor(.orange)
+                                .foregroundColor(.black)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.orange.opacity(0.1))
+                                .fill(Color.black.opacity(0.1))
                         )
                     }
                     
@@ -686,7 +731,7 @@ struct CompletedTaskRowView: View {
                         Text("\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
                             .font(.custom("Geist", size: 12))
                             .fontWeight(.light)
-                            .foregroundColor(.secondary.opacity(0.8))
+                            .foregroundColor(.secondary.opacity(0.6))
                     }
                 }
             }
@@ -697,10 +742,10 @@ struct CompletedTaskRowView: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.green.opacity(0.03))
+                .fill(Color.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
                 )
         )
         .contentShape(Rectangle())
@@ -981,7 +1026,7 @@ struct NewTaskSheet: View {
                     }
                     .font(.custom("Geist", size: 17))
                     .fontWeight(.semibold)
-                    .foregroundColor(isFormValid ? .blue : .gray)
+                    .foregroundColor(isFormValid ? .black : .gray)
                     .disabled(!isFormValid)
                 }
             }
