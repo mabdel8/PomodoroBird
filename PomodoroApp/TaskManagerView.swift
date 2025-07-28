@@ -243,6 +243,7 @@ struct TaskManagerView: View {
                                 .background(
                                     Circle()
                                         .fill(calendar.isDate(date, inSameDayAs: selectedDate) ? Color.black : Color.clear)
+                                        .shadow(color: calendar.isDate(date, inSameDayAs: selectedDate) ? .black.opacity(0.2) : .clear, radius: 4, x: 0, y: 2)
                                 )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -543,12 +544,12 @@ struct TaskRowView: View {
     var tagColor: Color {
         guard let colorString = task.tagColor else { return .gray }
         switch colorString {
-        case "blue": return .blue
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "red": return .red
-        default: return .gray
+        case "blue": return .blue.opacity(0.7)
+        case "green": return .green.opacity(0.7)
+        case "purple": return .purple.opacity(0.7)
+        case "orange": return .orange.opacity(0.7)
+        case "red": return .red.opacity(0.7)
+        default: return .gray.opacity(0.7)
         }
     }
     
@@ -576,14 +577,14 @@ struct TaskRowView: View {
                             Text(tagName)
                                 .font(.custom("Geist", size: 12))
                                 .fontWeight(.light)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.secondary.opacity(0.7))
                         }
                     }
                     
                     Text("\(task.duration) min")
                         .font(.custom("Geist", size: 12))
                         .fontWeight(.medium)
-                        .foregroundColor(.black)
+                        .foregroundColor(.black.opacity(0.7))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
@@ -604,6 +605,16 @@ struct TaskRowView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.gray.opacity(0.1), lineWidth: 1)
                 )
+                .overlay(
+                    HStack {
+                        Rectangle()
+                            .fill(tagColor)
+                            .frame(width: 4)
+                        
+                        Spacer()
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                )
         )
         .contentShape(Rectangle())
     }
@@ -616,12 +627,12 @@ struct CompletedTaskRowView: View {
     var tagColor: Color {
         guard let colorString = task.tagColor else { return .gray }
         switch colorString {
-        case "blue": return .blue
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "red": return .red
-        default: return .gray
+        case "blue": return .blue.opacity(0.7)
+        case "green": return .green.opacity(0.7)
+        case "purple": return .purple.opacity(0.7)
+        case "orange": return .orange.opacity(0.7)
+        case "red": return .red.opacity(0.7)
+        default: return .gray.opacity(0.7)
         }
     }
     
@@ -728,10 +739,16 @@ struct CompletedTaskRowView: View {
                     
                     // Sessions count
                     if sessions.count > 0 {
-                        Text("\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
+                        Text("\(sessions.count)×\(task.duration) min")
                             .font(.custom("Geist", size: 12))
                             .fontWeight(.light)
-                            .foregroundColor(.secondary.opacity(0.6))
+                            .foregroundColor(.black.opacity(0.7))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.black.opacity(0.1))
+                            )
                     }
                 }
             }
@@ -746,6 +763,16 @@ struct CompletedTaskRowView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                )
+                .overlay(
+                    HStack {
+                        Rectangle()
+                            .fill(tagColor)
+                            .frame(width: 4)
+                        
+                        Spacer()
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 )
         )
         .contentShape(Rectangle())
