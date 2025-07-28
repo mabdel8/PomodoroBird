@@ -846,12 +846,13 @@ struct NewTaskSheet: View {
                     // Task Name Section
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Task Name")
-                            .font(.custom("Geist", size: 16))
-                            .fontWeight(.medium)
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.bold)
                             .foregroundColor(Color(hex: "6E6E6E"))
                         
                         TextField("Enter task name", text: $taskTitle)
                             .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 12)
                             .frame(height: 44)
@@ -871,8 +872,8 @@ struct NewTaskSheet: View {
                             // Date Section
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Date")
-                                    .font(.custom("Geist", size: 16))
-                                    .fontWeight(.medium)
+                                    .font(.custom("Geist", size: 18))
+                                    .fontWeight(.bold)
                                     .foregroundColor(Color(hex: "6E6E6E"))
                                 
                                 Button(action: {
@@ -890,7 +891,8 @@ struct NewTaskSheet: View {
                                         
                                         Text(plannedDate, style: .date)
                                             .foregroundColor(.black)
-                                            .font(.body)
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
                                         
                                         Image(systemName: "chevron.down")
                                             .font(.system(size: 14))
@@ -915,8 +917,8 @@ struct NewTaskSheet: View {
                             // Duration Section
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Duration")
-                                    .font(.custom("Geist", size: 16))
-                                    .fontWeight(.medium)
+                                    .font(.custom("Geist", size: 18))
+                                    .fontWeight(.bold)
                                     .foregroundColor(Color(hex: "6E6E6E"))
                                 
                                 Button(action: {
@@ -932,6 +934,7 @@ struct NewTaskSheet: View {
                                         
                                         Text(taskDuration >= 60 ? "\(taskDuration / 60) h \(taskDuration % 60) m" : "\(taskDuration) m")
                                             .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
                                             .foregroundColor(.primary)
                                         
                                         Spacer()
@@ -1054,8 +1057,8 @@ struct NewTaskSheet: View {
                     // Category Section
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Category")
-                            .font(.custom("Geist", size: 16))
-                            .fontWeight(.medium)
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.bold)
                             .foregroundColor(Color(hex: "6E6E6E"))
                         
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
