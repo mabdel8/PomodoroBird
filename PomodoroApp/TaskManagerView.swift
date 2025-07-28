@@ -792,6 +792,7 @@ struct NewTaskSheet: View {
     @State private var selectedHours: Int = 0
     @State private var selectedMinutes: Int = 25
     @State private var showingDurationPicker = false
+    @State private var showDatePicker = false
     
     private var isFormValid: Bool {
         !taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedTag != nil
@@ -818,222 +819,303 @@ struct NewTaskSheet: View {
         }
     }
     
+    private func tagBackgroundColor(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return Color(hex: "F0F8FF") // Light blue
+        case "green": return Color(hex: "F0FFF0") // Light green
+        case "purple": return Color(hex: "F9F0FF") // Light purple
+        case "orange": return Color(hex: "FFF8F0") // Light orange
+        case "red": return Color(hex: "FFF0F0") // Light red
+        default: return Color(hex: "F0F8FF")
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 32) {
+                VStack(spacing: 24) {
                     // Header Section
                     VStack(spacing: 8) {
                         Text("Add Task")
-                            .font(.custom("Geist", size: 24))
-                            .fontWeight(.bold)
+                            .font(.system(size: 20, weight: .semibold, design: .default))
                             .foregroundColor(.primary)
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 32)
+                    .padding(.bottom, 16)
                     
                     // Task Name Section
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 10) {
                         Text("Task Name")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: "6E6E6E"))
                         
                         TextField("Enter task name", text: $taskTitle)
                             .font(.custom("Geist", size: 16))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.white)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                                    )
-                            )
-                    }
-                    
-                    // Date Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Date")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        HStack {
-                            Text("Date selected")
-                                .font(.custom("Geist", size: 16))
-                                .foregroundColor(.secondary)
-                            
-                            Spacer()
-                            
-                            DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
-                                .datePickerStyle(CompactDatePickerStyle())
-                                .labelsHidden()
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                                )
-                        )
-                    }
-                    
-                    // Duration Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Duration")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showingDurationPicker.toggle()
-                            }
-                        }) {
-                            HStack {
-                                Text(taskDuration >= 60 ? "\(taskDuration / 60) h \(taskDuration % 60) m" : "\(taskDuration) m")
-                                    .font(.custom("Geist", size: 16))
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                                    .rotationEffect(.degrees(showingDurationPicker ? 180 : 0))
-                            }
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 14)
                             .padding(.vertical, 12)
+                            .frame(height: 44)
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: 10)
                                     .fill(Color.white)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
                                     )
                             )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        if showingDurationPicker {
-                            HStack(spacing: 0) {
-                                Spacer()
-                                
-                                // Hours Picker
-                                Picker("Hours", selection: $selectedHours) {
-                                    ForEach(0...1, id: \.self) { hour in
-                                        Text("\(hour)")
-                                            .font(.custom("Geist", size: 24))
-                                            .tag(hour)
-                                    }
-                                }
-                                .pickerStyle(WheelPickerStyle())
-                                .frame(width: 80)
-                                .clipped()
-                                .onChange(of: selectedHours) { oldValue, newValue in
-                                    provideHapticFeedback()
-                                    // Ensure minimum 1 minute if both hours and minutes are 0
-                                    if newValue == 0 && selectedMinutes == 0 {
-                                        selectedMinutes = 1
-                                    }
-                                    updateTaskDuration()
-                                }
-                                
-                                Text("h")
-                                    .font(.custom("Geist", size: 20))
-                                    .foregroundColor(.primary)
-                                    .padding(.horizontal, 12)
-                                
-                                // Minutes Picker
-                                Picker("Minutes", selection: $selectedMinutes) {
-                                    ForEach(0...59, id: \.self) { minute in
-                                        Text("\(minute)")
-                                            .font(.custom("Geist", size: 24))
-                                            .tag(minute)
-                                    }
-                                }
-                                .pickerStyle(WheelPickerStyle())
-                                .frame(width: 80)
-                                .clipped()
-                                .onChange(of: selectedMinutes) { oldValue, newValue in
-                                    provideHapticFeedback()
-                                    // Ensure minimum 1 minute if both hours and minutes are 0
-                                    if selectedHours == 0 && newValue == 0 {
-                                        selectedMinutes = 1
-                                    }
-                                    updateTaskDuration()
-                                }
-                                
-                                Text("m")
-                                    .font(.custom("Geist", size: 20))
-                                    .foregroundColor(.primary)
-                                    .padding(.horizontal, 12)
-                                
-                                Spacer()
-                            }
-                            .frame(height: 150)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(.systemBackground))
-                                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-                            )
-                            .transition(.asymmetric(
-                                insertion: .scale(scale: 0.95).combined(with: .opacity),
-                                removal: .scale(scale: 0.95).combined(with: .opacity)
-                            ))
-                        }
                     }
                     
-                    // Category Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Category")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                    // Date and Duration Section
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Date")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: "6E6E6E"))
                         
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
-                            ForEach(tags, id: \.id) { tag in
+                        Text("Duration")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: "6E6E6E"))
+                        
+                        VStack(spacing: 12) {
+                            HStack(spacing: 12) {
+                                // Date Button
                                 Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        selectedTag = tag
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showingDurationPicker = false
+                                        showDatePicker.toggle()
                                     }
                                 }) {
-                                    HStack(spacing: 12) {
-                                        Circle()
-                                            .fill(tagColor(tag.color))
-                                            .frame(width: 16, height: 16)
+                                    HStack {
+                                        Image(systemName: "calendar")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.secondary)
                                         
-                                        Text(tag.name)
+                                        Spacer()
+                                        
+                                        Text(plannedDate, style: .date)
+                                            .foregroundColor(.black)
+                                            .font(.body)
+                                        
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.secondary)
+                                            .rotationEffect(.degrees(showDatePicker ? 180 : 0))
+                                    }
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .frame(height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.white)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
+                                        )
+                                )
+                                .buttonStyle(PlainButtonStyle())
+                                
+                                // Duration Button
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showDatePicker = false
+                                        showingDurationPicker.toggle()
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "clock")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.secondary)
+                                        
+                                        Text(taskDuration >= 60 ? "\(taskDuration / 60) h \(taskDuration % 60) m" : "\(taskDuration) m")
                                             .font(.custom("Geist", size: 16))
-                                            .fontWeight(.medium)
                                             .foregroundColor(.primary)
                                         
                                         Spacer()
+                                        
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.secondary)
+                                            .rotationEffect(.degrees(showingDurationPicker ? 180 : 0))
                                     }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 16)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(selectedTag?.id == tag.id ? tagColor(tag.color).opacity(0.1) : Color.white)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(selectedTag?.id == tag.id ? tagColor(tag.color) : Color.gray.opacity(0.1), lineWidth: 1)
-                                            )
-                                    )
                                 }
-                                .scaleEffect(selectedTag?.id == tag.id ? 1.02 : 1.0)
-                                .animation(.easeInOut(duration: 0.2), value: selectedTag?.id == tag.id)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .frame(height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.white)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
+                                        )
+                                )
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                            
+                            // Date Picker Dropdown
+                            if showDatePicker {
+                                DatePicker(
+                                    "Select a date",
+                                    selection: $plannedDate,
+                                    displayedComponents: .date
+                                )
+                                .datePickerStyle(.graphical)
+                                .labelsHidden()
+                                .padding()
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.white)
+                                        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                                ))
+                            }
+                            
+                            if showingDurationPicker {
+                                HStack {
+                                    Spacer()
+                                    
+                                    HStack(spacing: 0) {
+                                        Spacer()
+                                        
+                                        // Hours Picker
+                                        Picker("Hours", selection: $selectedHours) {
+                                            ForEach(0...1, id: \.self) { hour in
+                                                Text("\(hour)")
+                                                    .font(.custom("Geist", size: 24))
+                                                    .tag(hour)
+                                            }
+                                        }
+                                        .pickerStyle(WheelPickerStyle())
+                                        .frame(width: 80)
+                                        .clipped()
+                                        .onChange(of: selectedHours) { oldValue, newValue in
+                                            provideHapticFeedback()
+                                            // Ensure minimum 1 minute if both hours and minutes are 0
+                                            if newValue == 0 && selectedMinutes == 0 {
+                                                selectedMinutes = 1
+                                            }
+                                            updateTaskDuration()
+                                        }
+                                        
+                                        Text("h")
+                                            .font(.custom("Geist", size: 20))
+                                            .foregroundColor(.primary)
+                                            .padding(.horizontal, 12)
+                                        
+                                        // Minutes Picker
+                                        Picker("Minutes", selection: $selectedMinutes) {
+                                            ForEach(0...59, id: \.self) { minute in
+                                                Text("\(minute)")
+                                                    .font(.custom("Geist", size: 24))
+                                                    .tag(minute)
+                                            }
+                                        }
+                                        .pickerStyle(WheelPickerStyle())
+                                        .frame(width: 80)
+                                        .clipped()
+                                        .onChange(of: selectedMinutes) { oldValue, newValue in
+                                            provideHapticFeedback()
+                                            // Ensure minimum 1 minute if both hours and minutes are 0
+                                            if selectedHours == 0 && newValue == 0 {
+                                                selectedMinutes = 1
+                                            }
+                                            updateTaskDuration()
+                                        }
+                                        
+                                        Text("m")
+                                            .font(.custom("Geist", size: 20))
+                                            .foregroundColor(.primary)
+                                            .padding(.horizontal, 12)
+                                        
+                                        Spacer()
+                                    }
+                                    .frame(height: 150)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(Color(.systemBackground))
+                                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                                    )
+                                    .transition(.asymmetric(
+                                        insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                        removal: .scale(scale: 0.95).combined(with: .opacity)
+                                    ))
+                                }
                             }
                         }
+                        
+                        // Category Section
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Category")
+                                .font(.custom("Geist", size: 16))
+                                .fontWeight(.medium)
+                                .foregroundColor(Color(hex: "6E6E6E"))
+                            
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+                                ForEach(tags, id: \.id) { tag in
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            selectedTag = tag
+                                        }
+                                    }) {
+                                        HStack(spacing: 12) {
+                                            Circle()
+                                                .fill(tagColor(tag.color))
+                                                .frame(width: 16, height: 16)
+                                            
+                                            Text(tag.name)
+                                                .font(.custom("Geist", size: 16))
+                                                .fontWeight(.medium)
+                                                .foregroundColor(.primary)
+                                            
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 14)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .fill(selectedTag?.id == tag.id ? tagBackgroundColor(tag.color) : Color.white)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 20)
+                                                        .stroke(selectedTag?.id == tag.id ? tagColor(tag.color) : tagColor(tag.color).opacity(0.3), lineWidth: 1.5)
+                                                )
+                                        )
+                                    }
+                                    .scaleEffect(selectedTag?.id == tag.id ? 1.02 : 1.0)
+                                    .animation(.easeInOut(duration: 0.2), value: selectedTag?.id == tag.id)
+                                }
+                            }
+                        }
+                        
+                        Spacer(minLength: 40)
                     }
+                    .padding(.horizontal, 24)
                     
-                    Spacer(minLength: 40)
+                    // Full-width Done button at bottom
+                    VStack {
+                        Button(action: {
+                            onSave()
+                        }) {
+                            Text("Done")
+                                .font(.custom("Geist", size: 17))
+                                .fontWeight(.semibold)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(isFormValid ? Color.black : Color.gray.opacity(0.3))
+                                )
+                        }
+                        .disabled(!isFormValid)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
+                    }
                 }
-                .padding(.horizontal, 24)
             }
             .background(Color(.systemBackground))
 
@@ -1045,16 +1127,6 @@ struct NewTaskSheet: View {
                     }
                     .font(.custom("Geist", size: 17))
                     .foregroundColor(.secondary)
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        onSave()
-                    }
-                    .font(.custom("Geist", size: 17))
-                    .fontWeight(.semibold)
-                    .foregroundColor(isFormValid ? .black : .gray)
-                    .disabled(!isFormValid)
                 }
             }
         }
