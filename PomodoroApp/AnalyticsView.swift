@@ -23,6 +23,7 @@ struct AnalyticsView: View {
     @State private var selectedPeriod: TimePeriod = .weekly
     @State private var currentDate = Date()
     @State private var showingSessionHistory = false
+    @State private var showingChartDetails = false
     
     private var calendar = Calendar.current
     
@@ -343,6 +344,9 @@ struct AnalyticsView: View {
         .sheet(isPresented: $showingSessionHistory) {
             SessionHistoryView(focusSessions: focusSessions)
         }
+        .sheet(isPresented: $showingChartDetails) {
+            ChartDetailsView(barChartData: barChartData, selectedPeriod: selectedPeriod)
+        }
     }
     
     private var periodSelector: some View {
@@ -361,7 +365,7 @@ struct AnalyticsView: View {
                         .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(selectedPeriod == period ? Color.blue : Color.clear)
+                                .fill(selectedPeriod == period ? Color.black : Color.clear)
                         )
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -370,7 +374,7 @@ struct AnalyticsView: View {
         .padding(4)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.gray.opacity(0.1))
+                .fill(Color(UIColor.systemGray5))
         )
         .padding(.horizontal, 24)
     }
@@ -413,7 +417,17 @@ struct AnalyticsView: View {
             
             HStack(spacing: 32) {
                 totalFocusView(totalMinutes: totalMinutes)
+                
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 1, height: 40)
+                
                 sessionsView(sessionCount: sessionCount)
+                
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 1, height: 40)
+                
                 averageSessionView(averageMinutes: averageMinutes)
             }
             
@@ -442,16 +456,16 @@ struct AnalyticsView: View {
             Text("\(totalMinutes)")
                 .font(.custom("Geist", size: 28))
                 .fontWeight(.bold)
-                .foregroundColor(.blue)
+                .foregroundColor(.black)
             
             VStack(spacing: 2) {
                 Text("Total Focus")
-                    .font(.custom("Geist", size: 14))
+                    .font(.custom("Geist", size: 12))
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.secondary)
                 
                 Text("minutes")
-                    .font(.custom("Geist", size: 11))
+                    .font(.custom("Geist", size: 10))
                     .foregroundColor(.secondary)
             }
         }
@@ -463,16 +477,16 @@ struct AnalyticsView: View {
             Text("\(sessionCount)")
                 .font(.custom("Geist", size: 28))
                 .fontWeight(.bold)
-                .foregroundColor(.green)
+                .foregroundColor(.black)
             
             VStack(spacing: 2) {
                 Text("Sessions")
-                    .font(.custom("Geist", size: 14))
+                    .font(.custom("Geist", size: 12))
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.secondary)
                 
                 Text("completed")
-                    .font(.custom("Geist", size: 11))
+                    .font(.custom("Geist", size: 10))
                     .foregroundColor(.secondary)
             }
         }
@@ -484,16 +498,16 @@ struct AnalyticsView: View {
             Text("\(averageMinutes)")
                 .font(.custom("Geist", size: 28))
                 .fontWeight(.bold)
-                .foregroundColor(.orange)
+                .foregroundColor(.black)
             
             VStack(spacing: 2) {
                 Text("Avg Session")
-                    .font(.custom("Geist", size: 14))
+                    .font(.custom("Geist", size: 12))
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundColor(.secondary)
                 
                 Text("minutes")
-                    .font(.custom("Geist", size: 11))
+                    .font(.custom("Geist", size: 10))
                     .foregroundColor(.secondary)
             }
         }
@@ -520,26 +534,35 @@ struct AnalyticsView: View {
             formatter.dateFormat = "MMM d, yyyy" // "Jul 25, 2024"
         }
         
-        return HStack(spacing: 8) {
-            Image(systemName: "flame.fill")
-                .font(.system(size: 16))
-                .foregroundColor(.orange)
-            
-            Text("Most Focused Day")
-                .font(.custom("Geist", size: 16))
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
+        return HStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.orange)
+                
+                Text("Most Focused Day")
+                    .font(.custom("Geist", size: 14))
+                    .fontWeight(.bold)
+                    .foregroundColor(.black)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(Color(hex: "F2F2F2"))
+            )
             
             Spacer()
             
             Group {
                 if let mostDay = mostFocusedDay {
                     Text("\(formatter.string(from: mostDay.key)), \(mostDay.value) min")
-                        .font(.custom("Geist", size: 16))
+                        .font(.custom("Geist", size: 14))
+                        .fontWeight(.medium)
                         .foregroundColor(.secondary)
                 } else {
                     Text("No data")
-                        .font(.custom("Geist", size: 16))
+                        .font(.custom("Geist", size: 14))
                         .foregroundColor(.secondary)
                 }
             }
@@ -859,10 +882,28 @@ struct AnalyticsView: View {
                 x: .value("Period", data.label),
                 y: .value("Minutes", data.focusMinutes)
             )
-            .foregroundStyle(.blue.gradient)
+            .foregroundStyle(.black.opacity(0.8))
             .cornerRadius(4)
         }
+        .chartXAxis {
+            AxisMarks { _ in
+                AxisValueLabel()
+                    .foregroundStyle(.gray.opacity(0.6))
+                    .font(.custom("Geist", size: 12))
+            }
+        }
+        .chartYAxis {
+            AxisMarks { _ in
+                AxisValueLabel()
+                    .foregroundStyle(.gray.opacity(0.6))
+                    .font(.custom("Geist", size: 12))
+            }
+        }
         .frame(height: 200)
+        .onTapGesture {
+            // Handle tap to show details
+            showChartDetails()
+        }
     }
     
     private var monthLabelsForYearly: some View {
@@ -961,6 +1002,10 @@ struct AnalyticsView: View {
         case .yearly:
             currentDate = calendar.date(byAdding: .year, value: 1, to: currentDate) ?? currentDate
         }
+    }
+    
+    private func showChartDetails() {
+        showingChartDetails = true
     }
     
     private func dayOfWeekShort(_ date: Date) -> String {
@@ -1143,6 +1188,72 @@ struct SessionRowView: View {
         case "orange": return .orange
         case "red": return .red
         default: return .blue
+        }
+    }
+}
+
+struct ChartDetailsView: View {
+    let barChartData: [DailyStatsData]
+    let selectedPeriod: TimePeriod
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(barChartData, id: \.date) { data in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(data.label)
+                                .font(.custom("Geist", size: 16))
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                            
+                            Spacer()
+                            
+                            Text("\(data.focusMinutes) min")
+                                .font(.custom("Geist", size: 16))
+                                .fontWeight(.bold)
+                                .foregroundColor(.black)
+                        }
+                        
+                        HStack(spacing: 16) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.gray)
+                                
+                                Text("\(data.sessionCount) sessions")
+                                    .font(.custom("Geist", size: 12))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            if data.sessionCount > 0 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chart.bar.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.gray)
+                                    
+                                    Text("\(data.focusMinutes / max(data.sessionCount, 1)) min avg")
+                                        .font(.custom("Geist", size: 12))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .navigationTitle("Focus Details")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                }
+            }
         }
     }
 }
