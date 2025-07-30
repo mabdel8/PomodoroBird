@@ -191,6 +191,19 @@ struct TimerView: View {
     @State private var showingHatchingAnimation = false
     @State private var hatchedBird: BirdType?
     @State private var showingBirdCollection = false
+    @State private var showingNoBirdAnimation = false
+    
+    // Post-session egg display
+    @State private var lastEarnedBird: BirdType? // Bird earned from last completed session
+    @State private var showNoBirdEgg = false // Show "nobird" after short session
+    @State private var isSessionActive = false // Track if user is currently in a session
+    
+    // In-place egg animation states
+    @State private var isEggShaking = false
+    @State private var showCrackedEgg = false
+    @State private var showFinalResult = false // Show final bird or nobird
+    @State private var eggScale: CGFloat = 1.0
+    @State private var eggRotation: Double = 0.0
     
     // Background timing state
     @State private var sessionStartTime: Date?
@@ -347,14 +360,6 @@ struct TimerView: View {
                     onComplete: confirmSessionCompletion,
                     onCancel: cancelSessionCompletion
                 )
-            }
-        }
-        .overlay {
-            if showingHatchingAnimation, let bird = hatchedBird {
-                HatchingAnimationView(birdType: bird) {
-                    showingHatchingAnimation = false
-                    hatchedBird = nil
-                }
             }
         }
         .onAppear {
@@ -522,13 +527,17 @@ struct TimerView: View {
     
     private var timerDisplayWithProgress: some View {
         VStack(spacing: 24) {
-            // Egg progress display - no overlay
+            // Egg progress display with in-place animations
             Image(eggImageForProgress(progress))
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 280, height: 280)
+                .scaleEffect(eggScale)
+                .rotationEffect(.degrees(eggRotation))
                 .animation(.easeInOut(duration: 0.3), value: eggImageForProgress(progress))
                 .animation(.easeInOut(duration: 0.3), value: isBreakSession)
+                .animation(.easeInOut(duration: 0.1), value: eggScale)
+                .animation(.easeInOut(duration: 0.1), value: eggRotation)
             
             // Timer content below the egg
             VStack(spacing: 16) {
@@ -897,7 +906,33 @@ struct TimerView: View {
             return "eggsleeping"
         }
         
-        // Normal egg progression during focus sessions
+        // Handle in-place animation states
+        if showingHatchingAnimation || showingNoBirdAnimation {
+            if showFinalResult {
+                // Show final result after animation
+                if let earnedBird = hatchedBird {
+                    return earnedBird.birdImageName // Show the actual bird
+                } else {
+                    return "nobird" // Show nobird ghost
+                }
+            } else if showCrackedEgg {
+                return "almost" // Show cracked egg during animation
+            } else {
+                // During initial animation phase (shaking), show "almost" egg
+                return "almost"
+            }
+        }
+        
+        // If session is not active, show post-session egg
+        if !isSessionActive {
+            if showNoBirdEgg {
+                return "nobird" // Show nobird egg for short sessions
+            } else if let earnedBird = lastEarnedBird {
+                return earnedBird.eggImageName // Show the specific bird egg they earned
+            }
+        }
+        
+        // Normal egg progression during active focus sessions
         switch progress {
         case 0.0..<0.34:
             return "egg"
@@ -912,6 +947,89 @@ struct TimerView: View {
     
     private func generateRandomBird() -> BirdType {
         return BirdType.allCases.randomElement() ?? .sparrow
+    }
+    
+    // MARK: - In-Place Animation Functions
+    
+    private func handleSessionBirdHatching(session: FocusSession) {
+        let actualFocusTime = session.actualDuration // Duration in seconds
+        
+        // Mark session as no longer active
+        isSessionActive = false
+        
+        if actualFocusTime >= 600 { // 10 minutes = 600 seconds
+            // User earned a real bird
+            let newBird = generateRandomBird()
+            addBirdToCollection(newBird, fromSession: session)
+            
+            // Set post-session egg display to show the earned bird egg
+            lastEarnedBird = newBird
+            showNoBirdEgg = false
+            
+            // Show in-place hatching animation with real bird
+            hatchedBird = newBird
+            showingHatchingAnimation = true
+            startInPlaceEggAnimation()
+        } else {
+            // User gets "nobird" for focusing less than 10 minutes
+            // Don't add to collection, but show "nobird" animation
+            
+            // Set post-session egg display to show nobird egg
+            lastEarnedBird = nil
+            showNoBirdEgg = true
+            
+            // Show in-place "nobird" animation
+            hatchedBird = nil // Indicates no real bird
+            showingNoBirdAnimation = true
+            startInPlaceEggAnimation()
+        }
+        
+        // Auto-hide animation flags after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+            showingHatchingAnimation = false
+            showingNoBirdAnimation = false
+            hatchedBird = nil
+        }
+    }
+    
+    private func startInPlaceEggAnimation() {
+        // Reset animation states
+        isEggShaking = false
+        showCrackedEgg = false
+        showFinalResult = false
+        eggScale = 1.0
+        eggRotation = 0.0
+        
+        // Stage 1: Shake the egg
+        withAnimation(.easeInOut(duration: 0.1).repeatCount(6, autoreverses: true)) {
+            eggScale = 1.1
+        }
+        
+        // Add slight rotation for more dynamic effect
+        withAnimation(.easeInOut(duration: 0.05).repeatCount(12, autoreverses: true)) {
+            eggRotation = 3.0
+        }
+        
+        // Stage 2: Show cracks (use "almost" image)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            showCrackedEgg = true
+        }
+        
+        // Stage 3: Final hatch - show result
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
+                showFinalResult = true
+                eggScale = 1.0
+                eggRotation = 0.0
+            }
+        }
+        
+        // Stage 4: After a moment, transition to post-session egg
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            showFinalResult = false
+            showCrackedEgg = false
+            // The egg will now show the post-session result based on lastEarnedBird/showNoBirdEgg
+        }
     }
     
     private func addBirdToCollection(_ birdType: BirdType, fromSession: FocusSession?) {
@@ -1028,6 +1146,21 @@ struct TimerView: View {
     }
     
     private func startTimer() {
+        // Reset post-session egg display when starting a new session
+        isSessionActive = true
+        lastEarnedBird = nil
+        showNoBirdEgg = false
+        
+        // Reset animation states
+        isEggShaking = false
+        showCrackedEgg = false
+        showFinalResult = false
+        eggScale = 1.0
+        eggRotation = 0.0
+        showingHatchingAnimation = false
+        showingNoBirdAnimation = false
+        hatchedBird = nil
+        
         let sessionDuration: Int
         if isBreakSession {
             sessionDuration = Int(notificationManager.getEffectiveBreakDuration())
@@ -1133,6 +1266,8 @@ struct TimerView: View {
             }
         }
         
+        // Ensure any existing timer is invalidated before creating new one
+        timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             // Update timer using background-aware calculation
             updateTimerWithBackgroundCalculation()
@@ -1165,6 +1300,8 @@ struct TimerView: View {
             liveActivityManager.resumeActivity(remainingTime: timeRemaining)
         }
         
+        // Ensure any existing timer is invalidated before creating new one
+        timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             // Update timer using background-aware calculation
             updateTimerWithBackgroundCalculation()
@@ -1298,6 +1435,8 @@ struct TimerView: View {
                 }
                 
                 // Start the focus timer
+                // Ensure any existing timer is invalidated before creating new one
+                timer?.invalidate()
                 timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                     // Update timer using background-aware calculation
                     updateTimerWithBackgroundCalculation()
@@ -1345,6 +1484,9 @@ struct TimerView: View {
         
         // Update session work time for break tracking
         sessionWorkTime += session.actualDuration / 60 // Add minutes to session work time
+        
+        // 🐦 Handle bird hatching for manual completion
+        handleSessionBirdHatching(session: session)
         
         // Check if session has an associated task
         if let taskId = session.taskId {
@@ -1539,6 +1681,8 @@ struct TimerView: View {
             }
             
             // Start the focus timer
+            // Ensure any existing timer is invalidated before creating new one
+            timer?.invalidate()
             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 if timeRemaining > 0 {
                     timeRemaining -= 1
@@ -1631,18 +1775,7 @@ struct TimerView: View {
             
             // 🐦 Bird hatching mechanism - only for completed focus sessions
             if !isBreakSession {
-                let newBird = generateRandomBird()
-                addBirdToCollection(newBird, fromSession: session)
-                
-                // Show hatching animation
-                hatchedBird = newBird
-                showingHatchingAnimation = true
-                
-                // Auto-hide hatching animation after 3 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                    showingHatchingAnimation = false
-                    hatchedBird = nil
-                }
+                handleSessionBirdHatching(session: session)
             }
         }
         
@@ -1653,6 +1786,9 @@ struct TimerView: View {
                 timeRemaining = pausedFocusTimeRemaining
                 totalTime = pausedFocusTotalTime
                 currentSession = focusSession
+                
+                // Mark session as active when resuming focus after break
+                isSessionActive = true
                 
                 // Auto-resume the focus timer instead of requiring manual resume
                 isTimerRunning = true
@@ -1673,6 +1809,8 @@ struct TimerView: View {
                 }
                 
                 // Start the focus timer
+                // Ensure any existing timer is invalidated before creating new one
+                timer?.invalidate()
                 timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                     // Update timer using background-aware calculation
                     updateTimerWithBackgroundCalculation()
@@ -2592,6 +2730,119 @@ struct HatchingAnimationView: View {
         
         // Stage 4: Fade sparkles
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.easeOut(duration: 1.0)) {
+                sparkleOpacity = 0.0
+            }
+        }
+    }
+}
+
+struct NoBirdAnimationView: View {
+    let onDismiss: () -> Void
+    
+    @State private var showEgg = true
+    @State private var showNoBird = false
+    @State private var eggScale: CGFloat = 1.0
+    @State private var noBirdScale: CGFloat = 0.1
+    @State private var sparkleOpacity: Double = 0.0
+    
+    var body: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.7)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
+            
+            // Animation content
+            VStack(spacing: 32) {
+                Text("🥚 Not Quite There! 🥚")
+                    .font(.custom("Geist", size: 28))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .opacity(showNoBird ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.5).delay(1.5), value: showNoBird)
+                
+                ZStack {
+                    // Egg with cracks
+                    if showEgg {
+                        Image("almost")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 200, height: 200)
+                            .scaleEffect(eggScale)
+                            .opacity(showNoBird ? 0.0 : 1.0)
+                            .animation(.easeInOut(duration: 0.3), value: showNoBird)
+                    }
+                    
+                    // No bird (ghost)
+                    if showNoBird {
+                        Image("nobird")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 180, height: 180)
+                            .scaleEffect(noBirdScale)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.6).delay(1.0), value: noBirdScale)
+                    }
+                    
+                    // Dim sparkle effects (less exciting)
+                    ForEach(0..<4, id: \.self) { index in
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 16))
+                            .foregroundColor(.gray)
+                            .opacity(sparkleOpacity * 0.6)
+                            .offset(
+                                x: cos(Double(index) * .pi / 2) * 100,
+                                y: sin(Double(index) * .pi / 2) * 100
+                            )
+                            .animation(.easeInOut(duration: 0.8).delay(Double(index) * 0.1 + 1.2), value: sparkleOpacity)
+                    }
+                }
+                
+                Text("Focus for 10+ minutes to earn a bird!")
+                    .font(.custom("Geist", size: 18))
+                    .fontWeight(.medium)
+                    .foregroundColor(.gray)
+                    .opacity(showNoBird ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.5).delay(2.0), value: showNoBird)
+                
+                Button("Keep Trying!") {
+                    onDismiss()
+                }
+                .font(.custom("Geist", size: 18))
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.gray.opacity(0.8))
+                )
+                .opacity(showNoBird ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.5).delay(2.5), value: showNoBird)
+            }
+        }
+        .onAppear {
+            startNoBirdAnimation()
+        }
+    }
+    
+    private func startNoBirdAnimation() {
+        // Stage 1: Shake the egg
+        withAnimation(.easeInOut(duration: 0.1).repeatCount(4, autoreverses: true)) {
+            eggScale = 1.05
+        }
+        
+        // Stage 2: Show "nobird" (less dramatic than real hatching)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            showNoBird = true
+            noBirdScale = 1.0
+            sparkleOpacity = 0.8
+        }
+        
+        // Stage 3: Fade sparkles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
             withAnimation(.easeOut(duration: 1.0)) {
                 sparkleOpacity = 0.0
             }
