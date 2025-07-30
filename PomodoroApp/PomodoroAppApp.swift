@@ -18,6 +18,7 @@ struct PomodoroAppApp: App {
             Task.self,
             FocusSession.self,
             AppTimerState.self,
+            CollectedBird.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

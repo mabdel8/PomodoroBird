@@ -59,29 +59,9 @@
 		2FBA64972E35DAE500682163 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		2FBA64AA2E35DAE700682163 /* Exceptions for "PomodoroLiveActivity" folder in "PomodoroLiveActivityExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 2FBA64922E35DAE400682163 /* PomodoroLiveActivityExtension */;
-		};
-		2FBA64B02E35DB3F00682163 /* Exceptions for "PomodoroApp" folder in "PomodoroApp" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 2FBA63C12E31D47500682163 /* PomodoroApp */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2FBA63C42E31D47500682163 /* PomodoroApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				2FBA64B02E35DB3F00682163 /* Exceptions for "PomodoroApp" folder in "PomodoroApp" target */,
-			);
 			path = PomodoroApp;
 			sourceTree = "<group>";
 		};
@@ -97,9 +77,6 @@
 		};
 		2FBA64992E35DAE500682163 /* PomodoroLiveActivity */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				2FBA64AA2E35DAE700682163 /* Exceptions for "PomodoroLiveActivity" folder in "PomodoroLiveActivityExtension" target */,
-			);
 			path = PomodoroLiveActivity;
 			sourceTree = "<group>";
 		};
@@ -522,10 +499,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PomodoroApp/Preview Content\"";
-				DEVELOPMENT_TEAM = 9H3W66B869;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PomodoroApp/Info.plist;
+				INFOPLIST_FILE = "";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -553,10 +530,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PomodoroApp/Preview Content\"";
-				DEVELOPMENT_TEAM = 9H3W66B869;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PomodoroApp/Info.plist;
+				INFOPLIST_FILE = "";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -655,9 +632,9 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9H3W66B869;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PomodoroLiveActivity/Info.plist;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Info-LiveActivity.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = PomodoroLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -682,9 +659,9 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9H3W66B869;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PomodoroLiveActivity/Info.plist;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Info-LiveActivity.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = PomodoroLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (

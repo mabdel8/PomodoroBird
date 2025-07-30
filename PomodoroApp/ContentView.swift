@@ -145,6 +145,7 @@ struct TimerView: View {
     @Query(filter: #Predicate<Task> { !$0.isCompleted }, sort: \Task.createdAt, order: .reverse) private var availableTasks: [Task]
     @Query private var timerStates: [AppTimerState]
     @Query(sort: \FocusSession.createdAt, order: .reverse) private var recentSessions: [FocusSession]
+    @Query(sort: \CollectedBird.collectedAt, order: .reverse) private var collectedBirds: [CollectedBird]
     @Binding var selectedTab: Int
     
     // Live Activity Manager (iOS 16.1+)
@@ -182,6 +183,11 @@ struct TimerView: View {
     @State private var showingQuickTaskCreation = false
     @State private var quickTaskName = ""
     @State private var selectedTagForQuickTask: FocusTag?
+    
+    // Bird hatching system
+    @State private var showingHatchingAnimation = false
+    @State private var hatchedBird: BirdType?
+    @State private var showingBirdCollection = false
     
     // Background timing state
     @State private var sessionStartTime: Date?
@@ -338,6 +344,14 @@ struct TimerView: View {
                     onComplete: confirmSessionCompletion,
                     onCancel: cancelSessionCompletion
                 )
+            }
+        }
+        .overlay {
+            if showingHatchingAnimation, let bird = hatchedBird {
+                HatchingAnimationView(birdType: bird) {
+                    showingHatchingAnimation = false
+                    hatchedBird = nil
+                }
             }
         }
         .onAppear {
@@ -504,31 +518,21 @@ struct TimerView: View {
     }
     
     private var timerDisplayWithProgress: some View {
-        ZStack {
-            // Main background circle - clean and minimal
-            Circle()
-                .stroke(Color.gray.opacity(0.1), lineWidth: 6)
+        VStack(spacing: 24) {
+            // Egg progress display - no overlay
+            Image(eggImageForProgress(progress))
+                .resizable()
+                .aspectRatio(contentMode: .fit)
                 .frame(width: 280, height: 280)
+                .animation(.easeInOut(duration: 0.3), value: eggImageForProgress(progress))
             
-            // Progress ring - cleaner design
-            Circle()
-                .trim(from: 0, to: CGFloat(progress))
-                .stroke(
-                    isBreakSession ? Color.orange : Color.black,
-                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                )
-                .frame(width: 280, height: 280)
-                .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.5), value: progress)
-            
-            // Timer content
-            VStack(spacing: 12) {
+            // Timer content below the egg
+            VStack(spacing: 16) {
                 Text(timeString(from: timeRemaining))
                     .font(.custom("Geist", size: 52))
                     .fontWeight(.thin)
                     .monospacedDigit()
-                    .foregroundColor(.primary.opacity(0.6))
-                    .shadow(color: .black.opacity(0.05), radius: 1, x: 0, y: 0.5)
+                    .foregroundColor(.primary)
                     .scaleEffect(isTimerRunning ? 1.02 : 1.0)
                     .animation(.easeInOut(duration: 0.3), value: isTimerRunning)
                     .onChange(of: timeRemaining) { _ in
@@ -557,7 +561,7 @@ struct TimerView: View {
                             .opacity(0.6)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(.secondary.opacity(0.1))
@@ -931,6 +935,35 @@ struct TimerView: View {
     }
     
     // MARK: - Helper Methods
+    
+    private func eggImageForProgress(_ progress: Double) -> String {
+        switch progress {
+        case 0.0..<0.34:
+            return "egg"
+        case 0.34..<0.67:
+            return "partial"
+        case 0.67..<1.0:
+            return "almost"
+        default:
+            return "almost" // At 100%, we'll handle hatching separately
+        }
+    }
+    
+    private func generateRandomBird() -> BirdType {
+        return BirdType.allCases.randomElement() ?? .sparrow
+    }
+    
+    private func addBirdToCollection(_ birdType: BirdType, fromSession: FocusSession?) {
+        let collectedBird = CollectedBird(birdType: birdType, fromSessionId: fromSession?.id)
+        modelContext.insert(collectedBird)
+        
+        do {
+            try modelContext.save()
+            print("🐦 Hatched a \(birdType.displayName)!")
+        } catch {
+            print("Error saving collected bird: \(error)")
+        }
+    }
     
     private func setupInitialData() {
         // Create default tags if none exist
@@ -1632,6 +1665,22 @@ struct TimerView: View {
                     }
                 } catch {
                     print("Error fetching task: \(error)")
+                }
+            }
+            
+            // 🐦 Bird hatching mechanism - only for completed focus sessions
+            if !isBreakSession {
+                let newBird = generateRandomBird()
+                addBirdToCollection(newBird, fromSession: session)
+                
+                // Show hatching animation
+                hatchedBird = newBird
+                showingHatchingAnimation = true
+                
+                // Auto-hide hatching animation after 3 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    showingHatchingAnimation = false
+                    hatchedBird = nil
                 }
             }
         }
@@ -2469,13 +2518,133 @@ struct QuickTaskCreationSheet: View {
     }
 }
 
+struct HatchingAnimationView: View {
+    let birdType: BirdType
+    let onDismiss: () -> Void
+    
+    @State private var showEgg = true
+    @State private var showCracks = false
+    @State private var showBird = false
+    @State private var eggScale: CGFloat = 1.0
+    @State private var birdScale: CGFloat = 0.1
+    @State private var sparkleOpacity: Double = 0.0
+    
+    var body: some View {
+        ZStack {
+            // Background overlay
+            Color.black.opacity(0.7)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
+            
+            // Animation content
+            VStack(spacing: 32) {
+                Text("🎉 Egg Hatched! 🎉")
+                    .font(.custom("Geist", size: 28))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .opacity(showBird ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.5).delay(1.5), value: showBird)
+                
+                ZStack {
+                    // Egg with cracks
+                    if showEgg {
+                        Image("almost")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 200, height: 200)
+                            .scaleEffect(eggScale)
+                            .opacity(showBird ? 0.0 : 1.0)
+                            .animation(.easeInOut(duration: 0.3), value: showBird)
+                    }
+                    
+                    // Hatched bird
+                    if showBird {
+                        Image(birdType.birdImageName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 180, height: 180)
+                            .scaleEffect(birdScale)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.6).delay(1.0), value: birdScale)
+                    }
+                    
+                    // Sparkle effects
+                    ForEach(0..<8, id: \.self) { index in
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 20))
+                            .foregroundColor(.yellow)
+                            .opacity(sparkleOpacity)
+                            .offset(
+                                x: cos(Double(index) * .pi / 4) * 120,
+                                y: sin(Double(index) * .pi / 4) * 120
+                            )
+                            .animation(.easeInOut(duration: 0.8).delay(Double(index) * 0.1 + 1.2), value: sparkleOpacity)
+                    }
+                }
+                
+                Text("You collected a \(birdType.displayName)!")
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .opacity(showBird ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.5).delay(2.0), value: showBird)
+                
+                Button("Awesome!") {
+                    onDismiss()
+                }
+                .font(.custom("Geist", size: 18))
+                .fontWeight(.semibold)
+                .foregroundColor(.black)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.white)
+                )
+                .opacity(showBird ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.5).delay(2.5), value: showBird)
+            }
+        }
+        .onAppear {
+            startHatchingAnimation()
+        }
+    }
+    
+    private func startHatchingAnimation() {
+        // Stage 1: Shake the egg
+        withAnimation(.easeInOut(duration: 0.1).repeatCount(6, autoreverses: true)) {
+            eggScale = 1.1
+        }
+        
+        // Stage 2: Show cracks (already showing "almost" image)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            showCracks = true
+        }
+        
+        // Stage 3: Hatch the bird
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            showBird = true
+            birdScale = 1.0
+            sparkleOpacity = 1.0
+        }
+        
+        // Stage 4: Fade sparkles
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.easeOut(duration: 1.0)) {
+                sparkleOpacity = 0.0
+            }
+        }
+    }
+}
+
 #Preview {
     ContentView()
-        .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self], inMemory: true)
+        .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
 }
 
 #Preview("TimerView") {
     TimerView(selectedTab: .constant(0))
-        .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self], inMemory: true)
+        .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
 }
 
