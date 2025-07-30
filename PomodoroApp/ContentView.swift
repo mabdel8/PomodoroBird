@@ -112,30 +112,33 @@ struct ContentView: View {
         TabView(selection: $selectedTab) {
             TimerView(selectedTab: $selectedTab)
                 .tabItem {
-                    Image(selectedTab == 0 ? "timerfilled" : "timer")
-                        .renderingMode(.template)
+                    Image(systemName: "timer")
                     Text("Timer")
                 }
                 .tag(0)
             
             TaskManagerView()
                 .tabItem {
-                    Image(selectedTab == 1 ? "stackfilled" : "stack")
-                        .renderingMode(.template)
+                    Image(systemName: "list.bullet")
                     Text("Tasks")
                 }
-               .tag(1)
+                .tag(1)
             
             AnalyticsView()
                 .tabItem {
-                    Image(selectedTab == 2 ? "chartsfilled" : "charts")
-                        .renderingMode(.template)
+                    Image(systemName: "chart.bar")
                     Text("Analytics")
                 }
                 .tag(2)
-
+            
+            SettingsView()
+                .tabItem {
+                    Image(systemName: "gearshape")
+                    Text("Settings")
+                }
+                .tag(3)
         }
-        .accentColor(.blue)
+        .accentColor(.black)
     }
 }
 
@@ -363,7 +366,7 @@ struct TimerView: View {
                 liveActivityManager = LiveActivityManager()
             }
         }
-        .onChange(of: selectedTab) { oldValue, newValue in
+        .onChange(of: selectedTab) { _, newValue in
             // If user switches to timer tab while on break, return to focus timer and continue
             if newValue == 0 && isBreakSession {
                 endBreakEarly()

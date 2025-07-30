@@ -8,6 +8,33 @@
 import SwiftUI
 import SwiftData
 
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 struct TaskManagerView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Task.createdAt, order: .reverse) private var allTasks: [Task]
@@ -142,7 +169,7 @@ struct TaskManagerView: View {
                                 .frame(width: 56, height: 56)
                                 .background(
                                     Circle()
-                                        .fill(Color.red)
+                                        .fill(Color.black)
                                         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
                                 )
                         }
@@ -171,27 +198,28 @@ struct TaskManagerView: View {
     private var calendarHeader: some View {
         VStack(spacing: 16) {
             // Date header with streak
-            HStack {
-                Spacer()
-                
+            ZStack {
+                // Centered date
                 Text(selectedDateHeaderText)
                     .font(.custom("Geist", size: 24))
                     .fontWeight(.medium)
                     .foregroundColor(.primary)
                 
-                Spacer()
-                
-                // Streak display (always shown)
-                HStack(spacing: 4) {
-                    Image("fire")
-                        .resizable()
-                        .frame(width: 16, height: 16)
-                        .foregroundColor(.orange)
+                // Streak display (positioned absolutely on the right)
+                HStack {
+                    Spacer()
                     
-                    Text("\(currentStreak)")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.black)
+                    HStack(spacing: 4) {
+                        Image("fire")
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                            .foregroundColor(.orange)
+                        
+                        Text("\(currentStreak)")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
                 }
             }
             .padding(.horizontal, 24)
@@ -214,7 +242,8 @@ struct TaskManagerView: View {
                                 .frame(width: 32, height: 32)
                                 .background(
                                     Circle()
-                                        .fill(calendar.isDate(date, inSameDayAs: selectedDate) ? Color.red : Color.clear)
+                                        .fill(calendar.isDate(date, inSameDayAs: selectedDate) ? Color.black : Color.clear)
+                                        .shadow(color: calendar.isDate(date, inSameDayAs: selectedDate) ? .black.opacity(0.2) : .clear, radius: 4, x: 0, y: 2)
                                 )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -262,8 +291,8 @@ struct TaskManagerView: View {
                     }
             )
         }
-        .padding(.bottom, 24)
-        .background(Color.gray.opacity(0.05))
+        .padding(.bottom, 28)
+        .background(Color.white)
     }
     
     private var tasksContent: some View {
@@ -325,12 +354,19 @@ struct TaskManagerView: View {
                                         .padding(.vertical, 4)
                                         .background(
                                             Capsule()
-                                                .fill(Color.blue.opacity(0.1))
+                                                .fill(Color.black.opacity(0.1))
                                         )
                                     }
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 24)
+                                
+                                // Divider line
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 24)
+                                    .padding(.top, 8)
                                 
                                 if showTodoSection {
                                     ForEach(pendingTasks, id: \.id) { task in
@@ -377,12 +413,19 @@ struct TaskManagerView: View {
                                         .padding(.vertical, 4)
                                         .background(
                                             Capsule()
-                                                .fill(Color.green.opacity(0.1))
+                                                .fill(Color.black.opacity(0.1))
                                         )
                                     }
                                 }
                                 .buttonStyle(PlainButtonStyle())
                                 .padding(.horizontal, 24)
+                                
+                                // Divider line
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .frame(height: 1)
+                                    .padding(.horizontal, 24)
+                                    .padding(.top, 8)
                                 
                                 if showCompletedSection {
                                     ForEach(completedTasks, id: \.id) { task in
@@ -501,12 +544,12 @@ struct TaskRowView: View {
     var tagColor: Color {
         guard let colorString = task.tagColor else { return .gray }
         switch colorString {
-        case "blue": return .blue
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "red": return .red
-        default: return .gray
+        case "blue": return .blue.opacity(0.7)
+        case "green": return .green.opacity(0.7)
+        case "purple": return .purple.opacity(0.7)
+        case "orange": return .orange.opacity(0.7)
+        case "red": return .red.opacity(0.7)
+        default: return .gray.opacity(0.7)
         }
     }
     
@@ -515,12 +558,12 @@ struct TaskRowView: View {
             // Completion circle (non-interactive)
             Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                 .font(.title2)
-                .foregroundColor(task.isCompleted ? .green : .secondary)
+                .foregroundColor(task.isCompleted ? .black : .secondary)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.custom("Geist", size: 16))
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
                     .foregroundColor(task.isCompleted ? .secondary : .primary)
                     .strikethrough(task.isCompleted)
                 
@@ -534,19 +577,19 @@ struct TaskRowView: View {
                             Text(tagName)
                                 .font(.custom("Geist", size: 12))
                                 .fontWeight(.light)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.secondary.opacity(0.7))
                         }
                     }
                     
                     Text("\(task.duration) min")
                         .font(.custom("Geist", size: 12))
                         .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.black.opacity(0.7))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.blue.opacity(0.1))
+                                .fill(Color.black.opacity(0.1))
                         )
                 }
             }
@@ -557,7 +600,21 @@ struct TaskRowView: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.05))
+                .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                )
+                .overlay(
+                    HStack {
+                        Rectangle()
+                            .fill(tagColor)
+                            .frame(width: 4)
+                        
+                        Spacer()
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                )
         )
         .contentShape(Rectangle())
     }
@@ -570,12 +627,12 @@ struct CompletedTaskRowView: View {
     var tagColor: Color {
         guard let colorString = task.tagColor else { return .gray }
         switch colorString {
-        case "blue": return .blue
-        case "green": return .green
-        case "purple": return .purple
-        case "orange": return .orange
-        case "red": return .red
-        default: return .gray
+        case "blue": return .blue.opacity(0.7)
+        case "green": return .green.opacity(0.7)
+        case "purple": return .purple.opacity(0.7)
+        case "orange": return .orange.opacity(0.7)
+        case "red": return .red.opacity(0.7)
+        default: return .gray.opacity(0.7)
         }
     }
     
@@ -617,12 +674,12 @@ struct CompletedTaskRowView: View {
             // Completion circle (non-interactive)
             Image(systemName: "checkmark.circle.fill")
                 .font(.title2)
-                .foregroundColor(.green)
+                .foregroundColor(.black)
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(task.title)
                     .font(.custom("Geist", size: 16))
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
                     .foregroundColor(.secondary)
                     .strikethrough(true)
                 
@@ -645,18 +702,18 @@ struct CompletedTaskRowView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "clock.fill")
                                 .font(.system(size: 10))
-                                .foregroundColor(.green)
+                                .foregroundColor(.black)
                             
                             Text(formattedTime)
                                 .font(.custom("Geist", size: 12))
                                 .fontWeight(.medium)
-                                .foregroundColor(.green)
+                                .foregroundColor(.black)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.green.opacity(0.1))
+                                .fill(Color.black.opacity(0.1))
                         )
                     }
                     
@@ -665,27 +722,33 @@ struct CompletedTaskRowView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "cup.and.heat.waves")
                                 .font(.system(size: 10))
-                                .foregroundColor(.orange)
+                                .foregroundColor(.black)
                             
                             Text(formattedBreakTime)
                                 .font(.custom("Geist", size: 12))
                                 .fontWeight(.medium)
-                                .foregroundColor(.orange)
+                                .foregroundColor(.black)
                         }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(.orange.opacity(0.1))
+                                .fill(Color.black.opacity(0.1))
                         )
                     }
                     
                     // Sessions count
                     if sessions.count > 0 {
-                        Text("\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
+                        Text("\(sessions.count)×\(task.duration) min")
                             .font(.custom("Geist", size: 12))
                             .fontWeight(.light)
-                            .foregroundColor(.secondary.opacity(0.8))
+                            .foregroundColor(.black.opacity(0.7))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.black.opacity(0.1))
+                            )
                     }
                 }
             }
@@ -696,10 +759,20 @@ struct CompletedTaskRowView: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.green.opacity(0.03))
+                .fill(Color.white)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                )
+                .overlay(
+                    HStack {
+                        Rectangle()
+                            .fill(tagColor)
+                            .frame(width: 4)
+                        
+                        Spacer()
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 )
         )
         .contentShape(Rectangle())
@@ -716,9 +789,23 @@ struct NewTaskSheet: View {
     let onCancel: () -> Void
     
     @State private var durationText: String = "25"
+    @State private var selectedHours: Int = 0
+    @State private var selectedMinutes: Int = 25
+    @State private var showingDurationPicker = false
+    @State private var showDatePicker = false
     
     private var isFormValid: Bool {
         !taskTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedTag != nil
+    }
+    
+    private func updateTaskDuration() {
+        taskDuration = selectedHours * 60 + selectedMinutes
+        durationText = "\(taskDuration)"
+    }
+    
+    private func provideHapticFeedback() {
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
     }
     
     private func tagColor(_ colorString: String) -> Color {
@@ -732,6 +819,17 @@ struct NewTaskSheet: View {
         }
     }
     
+    private func tagBackgroundColor(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return Color(hex: "F0F8FF") // Light blue
+        case "green": return Color(hex: "F0FFF0") // Light green
+        case "purple": return Color(hex: "F9F0FF") // Light purple
+        case "orange": return Color(hex: "FFF8F0") // Light orange
+        case "red": return Color(hex: "FFF0F0") // Light red
+        default: return Color(hex: "F0F8FF")
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -739,90 +837,230 @@ struct NewTaskSheet: View {
                     // Header Section
                     VStack(spacing: 8) {
                         Text("Add Task")
-                            .font(.custom("Geist", size: 28))
-                            .fontWeight(.bold)
+                            .font(.system(size: 24, weight: .semibold, design: .default))
                             .foregroundColor(.primary)
                     }
-                    .padding(.top, 20)
+                    .padding(.top, 32)
+                    .padding(.bottom, 16)
                     
                     // Task Name Section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Task Name")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
                         
                         TextField("Enter task name", text: $taskTitle)
                             .font(.custom("Geist", size: 16))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 16)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .frame(height: 44)
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.1))
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
+                                    )
                             )
+                            .submitLabel(.done)
                     }
                     
-                    // Date Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Date")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        DatePicker("Select date", selection: $plannedDate, displayedComponents: .date)
-                            .datePickerStyle(CompactDatePickerStyle())
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    
-                    // Duration Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Duration")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        HStack(spacing: 16) {
-                            Slider(value: Binding(
-                                get: { Double(taskDuration) },
-                                set: { newValue in
-                                    taskDuration = Int(newValue)
-                                    durationText = "\(taskDuration)"
-                                }
-                            ), in: 5...120, step: 1)
-                            .accentColor(.blue)
-                            
-                            HStack(spacing: 4) {
-                                TextField("25", text: $durationText)
+                    // Date and Duration Section
+                    VStack(spacing: 16) {
+                        HStack(spacing: 12) {
+                            // Date Section
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Date")
                                     .font(.custom("Geist", size: 16))
                                     .fontWeight(.medium)
-                                    .keyboardType(.numberPad)
-                                    .frame(width: 40)
-                                    .multilineTextAlignment(.center)
-                                    .onChange(of: durationText) { oldValue, newValue in
-                                        if let duration = Int(newValue), duration >= 5, duration <= 120 {
-                                            taskDuration = duration
+                                    .foregroundColor(.black)
+                                
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showingDurationPicker = false
+                                        showDatePicker.toggle()
+                                    }
+                                }) {
+                                    HStack(alignment: .center, spacing: 5) {
+                                        Image(systemName: "calendar")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.black)
+                                        
+                                        Text(plannedDate, style: .date)
+                                            .foregroundColor(.black)
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.secondary)
+                                            .rotationEffect(.degrees(showDatePicker ? 180 : 0))
+                                    }
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .frame(height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.white)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
+                                        )
+                                )
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                            
+                            // Duration Section
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Duration")
+                                    .font(.custom("Geist", size: 16))
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.black)
+                                
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        showDatePicker = false
+                                        showingDurationPicker.toggle()
+                                    }
+                                }) {
+                                    HStack(alignment: .center, spacing: 10) {
+                                        Image(systemName: "clock")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.black)
+                                        
+                                        Text(taskDuration >= 60 ? "\(taskDuration / 60) h \(taskDuration % 60) m" : "\(taskDuration) m")
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.secondary)
+                                            .rotationEffect(.degrees(showingDurationPicker ? 180 : 0))
+                                    }
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .frame(height: 44)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.white)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
+                                        )
+                                )
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        
+                        // Date Picker Dropdown
+                        if showDatePicker {
+                            DatePicker(
+                                "Select a date",
+                                selection: $plannedDate,
+                                displayedComponents: .date
+                            )
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white)
+                                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                            )
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                removal: .scale(scale: 0.95).combined(with: .opacity)
+                            ))
+                        }
+                        
+                        if showingDurationPicker {
+                            HStack {
+                                Spacer()
+                                
+                                HStack(spacing: 0) {
+                                    Spacer()
+                                    
+                                    // Hours Picker
+                                    Picker("Hours", selection: $selectedHours) {
+                                        ForEach(0...1, id: \.self) { hour in
+                                            Text("\(hour)")
+                                                .font(.custom("Geist", size: 24))
+                                                .tag(hour)
                                         }
                                     }
-                                
-                                Text("min")
-                                    .font(.custom("Geist", size: 16))
-                                    .foregroundColor(.secondary)
+                                    .pickerStyle(WheelPickerStyle())
+                                    .frame(width: 80)
+                                    .clipped()
+                                    .onChange(of: selectedHours) { oldValue, newValue in
+                                        provideHapticFeedback()
+                                        // Ensure minimum 1 minute if both hours and minutes are 0
+                                        if newValue == 0 && selectedMinutes == 0 {
+                                            selectedMinutes = 1
+                                        }
+                                        updateTaskDuration()
+                                    }
+                                    
+                                    Text("h")
+                                        .font(.custom("Geist", size: 20))
+                                        .foregroundColor(.primary)
+                                        .padding(.horizontal, 12)
+                                    
+                                    // Minutes Picker
+                                    Picker("Minutes", selection: $selectedMinutes) {
+                                        ForEach(0...59, id: \.self) { minute in
+                                            Text("\(minute)")
+                                                .font(.custom("Geist", size: 24))
+                                                .tag(minute)
+                                        }
+                                    }
+                                    .pickerStyle(WheelPickerStyle())
+                                    .frame(width: 80)
+                                    .clipped()
+                                    .onChange(of: selectedMinutes) { oldValue, newValue in
+                                        provideHapticFeedback()
+                                        // Ensure minimum 1 minute if both hours and minutes are 0
+                                        if selectedHours == 0 && newValue == 0 {
+                                            selectedMinutes = 1
+                                        }
+                                        updateTaskDuration()
+                                    }
+                                    
+                                    Text("m")
+                                        .font(.custom("Geist", size: 20))
+                                        .foregroundColor(.primary)
+                                        .padding(.horizontal, 12)
+                                    
+                                    Spacer()
+                                }
+                                .frame(height: 150)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color(.systemBackground))
+                                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                                ))
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.gray.opacity(0.1))
-                            )
                         }
                     }
                     
                     // Category Section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Category")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
                         
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
                             ForEach(tags, id: \.id) { tag in
@@ -843,14 +1081,14 @@ struct NewTaskSheet: View {
                                         
                                         Spacer()
                                     }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 16)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 14)
                                     .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(selectedTag?.id == tag.id ? tagColor(tag.color).opacity(0.1) : Color.gray.opacity(0.1))
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(selectedTag?.id == tag.id ? tagBackgroundColor(tag.color) : Color.white)
                                             .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(selectedTag?.id == tag.id ? tagColor(tag.color) : Color.clear, lineWidth: 2)
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .stroke(selectedTag?.id == tag.id ? tagColor(tag.color) : tagColor(tag.color).opacity(0.3), lineWidth: 1.5)
                                             )
                                     )
                                 }
@@ -863,6 +1101,27 @@ struct NewTaskSheet: View {
                     Spacer(minLength: 40)
                 }
                 .padding(.horizontal, 24)
+                
+                // Full-width Done button at bottom
+                VStack {
+                    Button(action: {
+                        onSave()
+                    }) {
+                        Text("Done")
+                            .font(.custom("Geist", size: 17))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(isFormValid ? Color.black : Color.gray.opacity(0.3))
+                            )
+                    }
+                    .disabled(!isFormValid)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 32)
+                }
             }
             .background(Color(.systemBackground))
 
@@ -875,20 +1134,12 @@ struct NewTaskSheet: View {
                     .font(.custom("Geist", size: 17))
                     .foregroundColor(.secondary)
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        onSave()
-                    }
-                    .font(.custom("Geist", size: 17))
-                    .fontWeight(.semibold)
-                    .foregroundColor(isFormValid ? .blue : .gray)
-                    .disabled(!isFormValid)
-                }
             }
         }
         .onAppear {
             durationText = "\(taskDuration)"
+            selectedHours = taskDuration / 60
+            selectedMinutes = taskDuration % 60
         }
     }
 }
@@ -979,6 +1230,8 @@ struct ModernTagSelectionChip: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
+
+
 
 #Preview {
     TaskManagerView()

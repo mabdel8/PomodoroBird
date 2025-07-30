@@ -290,7 +290,7 @@ class LiveActivityManager: ObservableObject {
     }
     
     private func syncActivityWithAppState() async {
-        guard let activityData = loadActivityState(),
+        guard let _ = loadActivityState(),
               let activity = currentActivity else { return }
         
         let now = Date()
