@@ -112,28 +112,28 @@ struct ContentView: View {
         TabView(selection: $selectedTab) {
             TimerView(selectedTab: $selectedTab)
                 .tabItem {
-                    Image(systemName: "timer")
+                    Image(selectedTab == 0 ? "timerfilled" : "timer")
                     Text("Timer")
                 }
                 .tag(0)
             
             TaskManagerView()
                 .tabItem {
-                    Image(systemName: "list.bullet")
+                    Image(selectedTab == 1 ? "stackfilled" : "stack")
                     Text("Tasks")
                 }
                 .tag(1)
             
             AnalyticsView()
                 .tabItem {
-                    Image(systemName: "chart.bar")
+                    Image(selectedTab == 2 ? "chartsfilled" : "charts")
                     Text("Analytics")
                 }
                 .tag(2)
             
             SettingsView()
                 .tabItem {
-                    Image(systemName: "gearshape")
+                    Image(selectedTab == 3 ? "cogfilled" : "cog")
                     Text("Settings")
                 }
                 .tag(3)

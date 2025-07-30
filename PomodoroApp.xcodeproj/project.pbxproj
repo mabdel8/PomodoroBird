@@ -60,7 +60,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7CC2565E2E39B4A900901160 /* Exceptions for "PomodoroApp" folder in "PomodoroApp" target */ = {
+		2F6BA3712E3A6A0100212B1C /* Exceptions for "PomodoroApp" folder in "PomodoroApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -80,7 +80,7 @@
 		2FBA63C42E31D47500682163 /* PomodoroApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7CC2565E2E39B4A900901160 /* Exceptions for "PomodoroApp" folder in "PomodoroApp" target */,
+				2F6BA3712E3A6A0100212B1C /* Exceptions for "PomodoroApp" folder in "PomodoroApp" target */,
 			);
 			path = PomodoroApp;
 			sourceTree = "<group>";
@@ -522,7 +522,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PomodoroApp/Preview Content\"";
-				DEVELOPMENT_TEAM = 9H3W66B869;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PomodoroApp/Info.plist;
@@ -553,7 +553,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PomodoroApp/Preview Content\"";
-				DEVELOPMENT_TEAM = 9H3W66B869;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = PomodoroApp/Info.plist;
@@ -655,8 +655,8 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9H3W66B869;
-				GENERATE_INFOPLIST_FILE = YES;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PomodoroLiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PomodoroLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -682,8 +682,8 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 9H3W66B869;
-				GENERATE_INFOPLIST_FILE = YES;
+				DEVELOPMENT_TEAM = 3K6UAJ55JH;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PomodoroLiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = PomodoroLiveActivity;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
