@@ -525,6 +525,7 @@ struct TimerView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 280, height: 280)
                 .animation(.easeInOut(duration: 0.3), value: eggImageForProgress(progress))
+                .animation(.easeInOut(duration: 0.3), value: isBreakSession)
             
             // Timer content below the egg
             VStack(spacing: 16) {
@@ -888,6 +889,12 @@ struct TimerView: View {
     // MARK: - Helper Methods
     
     private func eggImageForProgress(_ progress: Double) -> String {
+        // Show sleeping egg during break sessions
+        if isBreakSession {
+            return "eggsleeping"
+        }
+        
+        // Normal egg progression during focus sessions
         switch progress {
         case 0.0..<0.34:
             return "egg"
