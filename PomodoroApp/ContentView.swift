@@ -528,6 +528,7 @@ struct TimerView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 280, height: 280)
                 .animation(.easeInOut(duration: 0.3), value: eggImageForProgress(progress))
+                .animation(.easeInOut(duration: 0.3), value: isBreakSession)
             
             // Timer content below the egg
             VStack(spacing: 16) {
@@ -577,13 +578,6 @@ struct TimerView: View {
     
     // MARK: - Time Selector Components
     
-    private var durationDisplay: some View {
-        Text("\(Int(selectedDuration)) min")
-            .font(.custom("Geist", size: 20))
-            .fontWeight(.medium)
-            .foregroundColor(.primary)
-            .animation(.easeInOut(duration: 0.2), value: selectedDuration)
-    }
     
     
     private func tickMarkView(for minute: Int) -> some View {
@@ -595,7 +589,7 @@ struct TimerView: View {
                 .fill(tickColor)
                 .frame(
                     width: isMajorTick ? 2 : 1,
-                    height: isMajorTick ? 20 : 12
+                    height: isMajorTick ? 28 : 12
                 )
             
             if isMajorTick {
@@ -658,37 +652,31 @@ struct TimerView: View {
                 timeRemaining = selectedDuration * 60
                 totalTime = selectedDuration * 60
             }
+            
+            // Add haptic feedback for time selection
+            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+            impactFeedback.impactOccurred()
         }
     }
     
     private var tapeMeasureTimeSelector: some View {
-        VStack(spacing: 16) {
-            durationDisplay
-            timeScrollView
-        }
+        timeScrollView
     }
     
     private var controlButtons: some View {
         HStack(spacing: 24) {
             if !isTimerRunning && !isPaused {
-                // Smaller circular start button with black and white design
+                // Play start button with dark background
                 Button(action: handleStartTimer) {
                     ZStack {
-                        // Outer circle with black border
                         Circle()
-                            .stroke(Color.black, lineWidth: 2)
+                            .fill(Color.black)
                             .frame(width: 80, height: 80)
-                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                         
-                        // Inner filled circle with white background
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 76, height: 76)
-                        
-                        // Play icon from assets
-                        Image("play")
+                        Image("playfilled")
                             .renderingMode(.template)
-                            .foregroundColor(.black)
+                            .foregroundColor(.white)
                             .scaleEffect(1.2)
                     }
                 }
@@ -701,15 +689,11 @@ struct TimerView: View {
                     Button(action: startBreak) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 60, height: 60)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
                                 .fill(Color.white)
-                                .frame(width: 56, height: 56)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
-                            Image(systemName: "cup.and.heat.waves")
+                            Image(systemName: "cup.and.heat.waves.fill")
                                 .renderingMode(.template)
                                 .foregroundColor(.black)
                                 .scaleEffect(0.9)
@@ -721,17 +705,13 @@ struct TimerView: View {
                 Button(action: resumeTimer) {
                     ZStack {
                         Circle()
-                            .stroke(Color.black, lineWidth: 2)
+                            .fill(Color.black)
                             .frame(width: 80, height: 80)
-                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                         
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 76, height: 76)
-                        
-                        Image("play")
+                        Image("playfilled")
                             .renderingMode(.template)
-                            .foregroundColor(.black)
+                            .foregroundColor(.white)
                             .scaleEffect(1.2)
                     }
                 }
@@ -741,15 +721,11 @@ struct TimerView: View {
                     Button(action: stopTimer) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 60, height: 60)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
                                 .fill(Color.white)
-                                .frame(width: 56, height: 56)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
-                            Image("stop")
+                            Image("stopfilled")
                                 .renderingMode(.template)
                                 .foregroundColor(.black)
                                 .scaleEffect(0.9)
@@ -765,13 +741,9 @@ struct TimerView: View {
                     Button(action: endBreakEarly) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 60, height: 60)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
                                 .fill(Color.white)
-                                .frame(width: 56, height: 56)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
                             Image("timer")
                                 .renderingMode(.template)
@@ -784,17 +756,13 @@ struct TimerView: View {
                     Button(action: pauseTimer) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
+                                .fill(Color.black)
                                 .frame(width: 80, height: 80)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 76, height: 76)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
                             Image("pause")
                                 .renderingMode(.template)
-                                .foregroundColor(.black)
+                                .foregroundColor(.white)
                                 .scaleEffect(1.2)
                         }
                     }
@@ -803,15 +771,11 @@ struct TimerView: View {
                     Button(action: stopTimer) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 60, height: 60)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
                                 .fill(Color.white)
-                                .frame(width: 56, height: 56)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
-                            Image("stop")
+                            Image("stopfilled")
                                 .renderingMode(.template)
                                 .foregroundColor(.black)
                                 .scaleEffect(0.9)
@@ -824,15 +788,11 @@ struct TimerView: View {
                     Button(action: startBreak) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 60, height: 60)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
                                 .fill(Color.white)
-                                .frame(width: 56, height: 56)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
-                            Image(systemName: "cup.and.heat.waves")
+                            Image(systemName: "cup.and.heat.waves.fill")
                                 .renderingMode(.template)
                                 .foregroundColor(.black)
                                 .scaleEffect(0.9)
@@ -843,17 +803,13 @@ struct TimerView: View {
                     Button(action: pauseTimer) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
+                                .fill(Color.black)
                                 .frame(width: 80, height: 80)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 76, height: 76)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
                             Image("pause")
                                 .renderingMode(.template)
-                                .foregroundColor(.black)
+                                .foregroundColor(.white)
                                 .scaleEffect(1.2)
                         }
                     }
@@ -862,15 +818,11 @@ struct TimerView: View {
                     Button(action: stopTimer) {
                         ZStack {
                             Circle()
-                                .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 60, height: 60)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            
-                            Circle()
                                 .fill(Color.white)
-                                .frame(width: 56, height: 56)
+                                .frame(width: 60, height: 60)
+                                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
                             
-                            Image("stop")
+                            Image("stopfilled")
                                 .renderingMode(.template)
                                 .foregroundColor(.black)
                                 .scaleEffect(0.9)
@@ -940,6 +892,12 @@ struct TimerView: View {
     // MARK: - Helper Methods
     
     private func eggImageForProgress(_ progress: Double) -> String {
+        // Show sleeping egg during break sessions
+        if isBreakSession {
+            return "eggsleeping"
+        }
+        
+        // Normal egg progression during focus sessions
         switch progress {
         case 0.0..<0.34:
             return "egg"

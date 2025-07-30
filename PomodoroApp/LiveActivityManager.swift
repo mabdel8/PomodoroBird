@@ -85,7 +85,7 @@ class LiveActivityManager: ObservableObject {
             let actualRemainingTime = max(0, currentState.timerEnd.timeIntervalSince(now))
             
             let updatedState = PomodoroTimerAttributes.ContentState(
-                timerEnd: currentState.timerEnd, // Keep original end time for reference
+                timerEnd: Date.distantFuture, // Set to distant future to stop countdown
                 sessionType: currentState.sessionType,
                 taskName: currentState.taskName,
                 isPaused: true,

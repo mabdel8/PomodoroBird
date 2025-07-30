@@ -92,10 +92,17 @@ struct PomodoroTimerLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 6) {
                         // Timer
-                        Text(context.state.timerEnd, style: .timer)
-                            .font(.system(.title2, design: .rounded, weight: .bold))
-                            .monospacedDigit()
-                            .foregroundColor(.white)
+                        if context.state.isPaused {
+                            Text(timeString(from: context.state.remainingTime))
+                                .font(.system(.title2, design: .rounded, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundColor(.white)
+                        } else {
+                            Text(context.state.timerEnd, style: .timer)
+                                .font(.system(.title2, design: .rounded, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundColor(.white)
+                        }
                         
                         // Status
                         Text(context.state.isPaused ? "Paused" : "Active")
@@ -139,10 +146,17 @@ struct PomodoroTimerLiveActivity: Widget {
                             .font(.system(.caption2, design: .rounded, weight: .medium))
                             .foregroundColor(.orange)
                     }
-                    Text(context.state.timerEnd, style: .timer)
-                        .font(.system(.caption, design: .rounded, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundColor(.white)
+                    if context.state.isPaused {
+                        Text(timeString(from: context.state.remainingTime))
+                            .font(.system(.caption, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                    } else {
+                        Text(context.state.timerEnd, style: .timer)
+                            .font(.system(.caption, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                    }
                 }
             } minimal: {
                 Circle()
@@ -208,10 +222,17 @@ struct LockScreenLiveActivityView: View {
                 Spacer()
                 
                 VStack(spacing: 4) {
-                    Text(context.state.timerEnd, style: .timer)
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundColor(.white)
+                    if context.state.isPaused {
+                        Text(timeString(from: context.state.remainingTime))
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                    } else {
+                        Text(context.state.timerEnd, style: .timer)
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                    }
                     
 //                    if let taskName = context.state.taskName {
 //                        Text(taskName)
