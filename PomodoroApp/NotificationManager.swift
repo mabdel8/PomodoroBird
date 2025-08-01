@@ -23,6 +23,7 @@ class NotificationManager: ObservableObject {
     @Published var testFocusDuration: Int = 25 // minutes
     @Published var testBreakDuration: Int = 5 // minutes
     @Published var isTestModeEnabled = false
+    @Published var enableBirdHatchingTestMode = false // Test bird hatching at 15 seconds instead of 10 minutes
     
     enum AlarmSound: String, CaseIterable {
         case defaultSound = "default"
@@ -155,6 +156,61 @@ class NotificationManager: ObservableObject {
         }
     }
     
+    // MARK: - Background Timer Notifications
+    
+    func scheduleTimerCompletionNotification(sessionType: String, taskName: String?, fireDate: Date) {
+        // Cancel any existing timer notifications
+        cancelTimerNotifications()
+        
+        let content = UNMutableNotificationContent()
+        
+        if sessionType == "focus" {
+            content.title = "Focus Session Complete! 🎯"
+            if let taskName = taskName {
+                content.body = "Great work on \(taskName)! Time for a break?"
+            } else {
+                content.body = "Great focus session! Time for a break?"
+            }
+        } else {
+            content.title = "Break Time Over! ⏰"
+            content.body = "Ready to get back to work?"
+        }
+        
+        content.sound = UNNotificationSound.default
+        content.badge = 1
+        content.userInfo = ["sessionType": sessionType, "fireDate": fireDate.timeIntervalSince1970]
+        
+        // Add deep link to open timer tab
+        content.categoryIdentifier = "TIMER_COMPLETE"
+        content.userInfo["deeplink"] = "pomodoroapp://timer"
+        
+        // Use time interval trigger instead of calendar trigger for better reliability
+        let timeInterval = fireDate.timeIntervalSinceNow
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: max(1, timeInterval), // Ensure minimum 1 second
+            repeats: false
+        )
+        
+        let request = UNNotificationRequest(
+            identifier: "timer-completion-scheduled",
+            content: content,
+            trigger: trigger
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to schedule timer notification: \(error.localizedDescription)")
+            } else {
+                print("✅ Timer completion notification scheduled for \(fireDate)")
+            }
+        }
+    }
+    
+    func cancelTimerNotifications() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["timer-completion-scheduled"])
+        print("🗑️ Cancelled timer notifications")
+    }
+    
     // MARK: - Settings Persistence
     
     private func loadSettings() {
@@ -174,6 +230,7 @@ class NotificationManager: ObservableObject {
         testFocusDuration = defaults.object(forKey: "testFocusDuration") as? Int ?? 25
         testBreakDuration = defaults.object(forKey: "testBreakDuration") as? Int ?? 5
         isTestModeEnabled = defaults.object(forKey: "isTestModeEnabled") as? Bool ?? false
+        enableBirdHatchingTestMode = defaults.object(forKey: "enableBirdHatchingTestMode") as? Bool ?? false
     }
     
     func saveSettings() {
@@ -189,6 +246,7 @@ class NotificationManager: ObservableObject {
         defaults.set(testFocusDuration, forKey: "testFocusDuration")
         defaults.set(testBreakDuration, forKey: "testBreakDuration")
         defaults.set(isTestModeEnabled, forKey: "isTestModeEnabled")
+        defaults.set(enableBirdHatchingTestMode, forKey: "enableBirdHatchingTestMode")
         
         print("💾 Notification settings saved")
     }
@@ -208,6 +266,14 @@ class NotificationManager: ObservableObject {
             return TimeInterval(testBreakDuration) // Use seconds for test mode
         } else {
             return TimeInterval(testBreakDuration * 60) // Convert minutes to seconds for normal mode
+        }
+    }
+    
+    func getEffectiveBirdHatchingDuration() -> TimeInterval {
+        if enableBirdHatchingTestMode {
+            return 15.0 // 15 seconds for testing
+        } else {
+            return 600.0 // 10 minutes (600 seconds) for normal mode
         }
     }
     
