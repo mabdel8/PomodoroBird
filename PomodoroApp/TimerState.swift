@@ -10,6 +10,7 @@ import SwiftData
 import Foundation
 import ActivityKit
 import BackgroundTasks
+import UIKit
 
 // MARK: - Timer State Management
 @Observable
@@ -63,6 +64,7 @@ class TimerStateManager {
     var showFinalResult = false // Show final bird or nobird
     var eggScale: CGFloat = 1.0
     var eggRotation: Double = 0.0
+    var isHatching = false // Hide UI during hatching animation
     
     // Background timing state
     var sessionStartTime: Date?
@@ -215,8 +217,8 @@ class TimerStateManager {
             return "eggsleeping"
         }
         
-        // Handle in-place animation states
-        if showingHatchingAnimation || showingNoBirdAnimation {
+        // Handle hatching animation states
+        if isHatching {
             if showFinalResult {
                 // Show final result after animation
                 if let earnedBird = hatchedBird {
@@ -300,29 +302,27 @@ class TimerStateManager {
             // Set post-session egg display to show the earned bird egg
             lastEarnedBird = newBird
             showNoBirdEgg = false
-            
-            // Show overlay hatching animation with real bird
             hatchedBird = newBird
-            showingHatchingAnimation = true
-            // Don't start in-place animation - use overlay only
+            
+            // Start the hatching animation
+            startInPlaceEggAnimation()
         } else {
             // User gets "nobird" for focusing less than 10 minutes
-            // Don't add to collection, but show "nobird" animation
-            
             // Set post-session egg display to show nobird egg
             lastEarnedBird = nil
             showNoBirdEgg = true
+            hatchedBird = nil
             
-            // Show overlay "nobird" animation
-            hatchedBird = nil // Indicates no real bird
-            showingNoBirdAnimation = true
-            // Don't start in-place animation - use overlay only
+            // Start the hatching animation
+            startInPlaceEggAnimation()
         }
-        
-        // Animation flags will be cleaned up by overlay dismiss callbacks
+
     }
     
     func startInPlaceEggAnimation() {
+        // Start hatching - this will hide the UI
+        isHatching = true
+        
         // Reset animation states
         isEggShaking = false
         showCrackedEgg = false
@@ -330,7 +330,7 @@ class TimerStateManager {
         eggScale = 1.0
         eggRotation = 0.0
         
-        // Stage 1: Shake the egg
+        // Stage 1: Shake the egg with haptic feedback
         withAnimation(.easeInOut(duration: 0.1).repeatCount(6, autoreverses: true)) {
             eggScale = 1.1
         }
@@ -340,25 +340,97 @@ class TimerStateManager {
             eggRotation = 3.0
         }
         
-        // Stage 2: Show cracks (use "almost" image)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            self.showCrackedEgg = true
-        }
-        
-        // Stage 3: Final hatch - show result
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
-                self.showFinalResult = true
-                self.eggScale = 1.0
-                self.eggRotation = 0.0
+        // Haptic feedback during shaking
+        if notificationManager.enableHapticFeedback {
+            let lightImpact = UIImpactFeedbackGenerator(style: .light)
+            lightImpact.impactOccurred()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                lightImpact.impactOccurred()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                lightImpact.impactOccurred()
             }
         }
         
-        // Stage 4: After a moment, transition to post-session egg
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            self.showFinalResult = false
-            self.showCrackedEgg = false
-            // The egg will now show the post-session result based on lastEarnedBird/showNoBirdEgg
+        // Stage 2: Show cracks with medium haptic feedback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            self.showCrackedEgg = true
+            
+            // Medium haptic for crack appearance
+            if self.notificationManager.enableHapticFeedback {
+                let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
+                mediumImpact.impactOccurred()
+            }
+            
+            // Add a small scale pulse when cracks appear
+            withAnimation(.easeOut(duration: 0.2)) {
+                self.eggScale = 1.05
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    self.eggScale = 1.0
+                }
+            }
+        }
+        
+        // Stage 3: Dramatic final hatch with enhanced animation and strong haptic
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            // Strong haptic for the big reveal
+            if self.notificationManager.enableHapticFeedback {
+                let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
+                heavyImpact.impactOccurred()
+                
+                // Add success notification haptic
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    let notificationFeedback = UINotificationFeedbackGenerator()
+                    notificationFeedback.notificationOccurred(.success)
+                }
+            }
+            
+            // Enhanced animation with multiple stages
+            // First: Quick scale down (anticipation)
+            withAnimation(.easeIn(duration: 0.1)) {
+                self.eggScale = 0.9
+                self.eggRotation = 0.0
+            }
+            
+            // Then: Dramatic scale up with spring (reveal)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.8, dampingFraction: 0.5, blendDuration: 0)) {
+                    self.showFinalResult = true
+                    self.eggScale = 1.3
+                }
+            }
+            
+            // Finally: Settle to normal size
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    self.eggScale = 1.0
+                }
+            }
+        }
+        
+        // Stage 4: Gentle transition to post-session egg with subtle animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+            withAnimation(.easeInOut(duration: 0.8)) {
+                self.showFinalResult = false
+                self.showCrackedEgg = false
+                self.eggScale = 0.95
+            }
+            
+            // Clean up animation variables after fade
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                withAnimation(.easeOut(duration: 0.4)) {
+                    self.eggScale = 1.0
+                }
+                self.isHatching = false // Show UI again
+                // Keep hatchedBird for a moment to ensure proper final display
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    self.hatchedBird = nil
+                }
+                // The egg will now show the post-session result based on lastEarnedBird/showNoBirdEgg
+            }
         }
     }
     

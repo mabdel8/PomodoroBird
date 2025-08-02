@@ -56,34 +56,40 @@ struct TimerView: View {
     }
     
     private func mainContent(stateManager: TimerStateManager) -> some View {
-        VStack(spacing: 0) {
-            // Top navigation area
-            HStack {
-                Spacer()
-                
-                Button(action: { stateManager.showingSettings = true }) {
-                    Image("setting")
-                        .renderingMode(.template)
-                        .foregroundColor(.black)
-                        .font(.system(size: 20))
+        ZStack {
+            VStack(spacing: 0) {
+                // Top navigation area
+                HStack {
+                    Spacer()
+                    
+                    Button(action: { stateManager.showingSettings = true }) {
+                        Image("setting")
+                            .renderingMode(.template)
+                            .foregroundColor(.black)
+                            .font(.system(size: 20))
+                    }
                 }
+                .padding(.horizontal, 24)
+                .padding(.top, 8)
+                .opacity(stateManager.isHatching ? 0 : 1)
+                .animation(.easeInOut(duration: 0.3), value: stateManager.isHatching)
+                
+                Spacer() // Push content to center
+                
+                // Main timer content - centered vertically
+                VStack(spacing: 24) {
+                    mainTimerSection(stateManager: stateManager)
+                }
+                .padding(.horizontal, 24)
+                
+                Spacer() // Push content to center (bottom spacer)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
+            .padding(.bottom, 20) // Small space from tab bar
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(UIColor.systemBackground))
             
-            Spacer() // Push content to center
-            
-            // Main timer content - centered vertically
-            VStack(spacing: 24) {
-                mainTimerSection(stateManager: stateManager)
-            }
-            .padding(.horizontal, 24)
-            
-            Spacer() // Push content to center (bottom spacer)
+
         }
-        .padding(.bottom, 20) // Small space from tab bar
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemBackground))
     }
     
     private func mainTimerSection(stateManager: TimerStateManager) -> some View {
@@ -97,27 +103,70 @@ struct TimerView: View {
             currentTaskSection(stateManager: stateManager)
             
             // Timer display
-            timerDisplayWithProgress(stateManager: stateManager)
+            if !stateManager.isHatching {
+                timerDisplayWithProgress(stateManager: stateManager)
+            }
             
             // Time selector (only when timer is not running)
-            if !stateManager.isTimerRunning && !stateManager.isPaused {
+            if !stateManager.isTimerRunning && !stateManager.isPaused && !stateManager.isHatching {
                 tapeMeasureTimeSelector(stateManager: stateManager)
                     .padding(.horizontal, 24)
             }
             
             // Control buttons
-            controlButtons(stateManager: stateManager)
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
+            if !stateManager.isHatching {
+                controlButtons(stateManager: stateManager)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
+            }
         }
+        .opacity(stateManager.isHatching ? 0 : 1)
+        .animation(.easeInOut(duration: 0.3), value: stateManager.isHatching)
     }
     
 
     
     private func contentWithSheets(stateManager: TimerStateManager) -> some View {
-        mainContent(stateManager: stateManager)
-            .modifier(TimerSheetsModifier(stateManager: stateManager, tags: tags, availableTasks: availableTasks))
-            .modifier(TimerOverlaysModifier(stateManager: stateManager))
+        ZStack {
+            mainContent(stateManager: stateManager)
+                .modifier(TimerSheetsModifier(stateManager: stateManager, tags: tags, availableTasks: availableTasks))
+                .modifier(TimerOverlaysModifier(stateManager: stateManager))
+            
+            // Overlay to hide tab bar during hatching
+            if stateManager.isHatching {
+                Color(UIColor.systemBackground)
+                    .ignoresSafeArea(.all)
+                    .overlay {
+                        VStack {
+                            Spacer()
+                            
+                            // Centered egg animation
+                            Image(stateManager.eggImageForProgress(stateManager.progress))
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 320, height: 320)
+                                .scaleEffect(stateManager.eggScale)
+                                .rotationEffect(.degrees(stateManager.eggRotation))
+                                .shadow(
+                                    color: stateManager.showFinalResult ? 
+                                        (stateManager.hatchedBird != nil ? Color.yellow.opacity(0.6) : Color.purple.opacity(0.4)) : 
+                                        Color.clear,
+                                    radius: stateManager.showFinalResult ? 20 : 0,
+                                    x: 0,
+                                    y: 0
+                                )
+                                .animation(.easeInOut(duration: 0.3), value: stateManager.eggImageForProgress(stateManager.progress))
+                                .animation(.easeInOut(duration: 0.1), value: stateManager.eggScale)
+                                .animation(.easeInOut(duration: 0.1), value: stateManager.eggRotation)
+                                .animation(.easeInOut(duration: 0.5), value: stateManager.showFinalResult)
+                            
+                            Spacer()
+                        }
+                    }
+                    .transition(.opacity)
+                    .zIndex(1000) // Ensure it's above everything
+            }
+        }
             .onReceive(NotificationCenter.default.publisher(for: .openTimerTab)) { _ in
                 selectedTab = 0 // Switch to timer tab (from Live Activity tap - don't end break)
             }
@@ -327,10 +376,19 @@ struct TimerView: View {
                 .frame(width: 280, height: 280)
                 .scaleEffect(stateManager.eggScale)
                 .rotationEffect(.degrees(stateManager.eggRotation))
+                .shadow(
+                    color: stateManager.showFinalResult ? 
+                        (stateManager.hatchedBird != nil ? Color.yellow.opacity(0.6) : Color.purple.opacity(0.4)) : 
+                        Color.clear,
+                    radius: stateManager.showFinalResult ? 20 : 0,
+                    x: 0,
+                    y: 0
+                )
                 .animation(.easeInOut(duration: 0.3), value: stateManager.eggImageForProgress(stateManager.progress))
                 .animation(.easeInOut(duration: 0.3), value: stateManager.isBreakSession)
                 .animation(.easeInOut(duration: 0.1), value: stateManager.eggScale)
                 .animation(.easeInOut(duration: 0.1), value: stateManager.eggRotation)
+                .animation(.easeInOut(duration: 0.5), value: stateManager.showFinalResult)
             
             // Timer content below the egg
             VStack(spacing: 16) {
@@ -703,22 +761,6 @@ struct TimerOverlaysModifier: ViewModifier {
                     )
                 }
             }
-            .overlay {
-                // Bird hatching animation overlay
-                if stateManager.showingHatchingAnimation, let bird = stateManager.hatchedBird {
-                    HatchingAnimationView(birdType: bird) {
-                        stateManager.showingHatchingAnimation = false
-                        stateManager.hatchedBird = nil
-                    }
-                }
-            }
-            .overlay {
-                // No bird animation overlay
-                if stateManager.showingNoBirdAnimation {
-                    NoBirdAnimationView(onDismiss: {
-                        stateManager.showingNoBirdAnimation = false
-                    }, requiredDuration: stateManager.notificationManager.getEffectiveBirdHatchingDuration())
-                }
-            }
+
     }
 }
