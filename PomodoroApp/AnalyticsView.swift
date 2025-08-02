@@ -1355,13 +1355,32 @@ struct SessionHistoryView: View {
             .map { $0 }
     }
     
+    private var groupedSessions: [(String, [FocusSession])] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: recentSessions) { session in
+            calendar.startOfDay(for: session.createdAt)
+        }
+        
+        return grouped.sorted { $0.key > $1.key }.map { date, sessions in
+            let formatter = DateFormatter()
+            formatter.dateStyle = .full
+            let dateString = formatter.string(from: date)
+            return (dateString, sessions.sorted { $0.createdAt > $1.createdAt })
+        }
+    }
+    
     var body: some View {
         NavigationView {
-            List {
-                ForEach(recentSessions, id: \.id) { session in
-                    SessionRowView(session: session)
+            ScrollView {
+                LazyVStack(spacing: 24) {
+                    ForEach(groupedSessions, id: \.0) { dateString, sessions in
+                        dayContainer(dateString: dateString, sessions: sessions)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
+            .background(Color.white)
             .navigationTitle("Session History")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -1373,6 +1392,47 @@ struct SessionHistoryView: View {
                     .fontWeight(.medium)
                 }
             }
+        }
+        .background(Color.white)
+        .preferredColorScheme(.light)
+    }
+    
+    private func dayContainer(dateString: String, sessions: [FocusSession]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Date header above container
+            Text(dateString)
+                .font(.custom("Geist", size: 18))
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+                .padding(.horizontal, 16)
+            
+            // Container with tasks
+            VStack(spacing: 0) {
+                ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
+                    VStack(spacing: 0) {
+                        SessionRowView(session: session)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        
+                        // Divider line (except for last item)
+                        if index < sessions.count - 1 {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: 1)
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                    )
+            )
         }
     }
 }
@@ -1387,44 +1447,55 @@ struct SessionRowView: View {
         return formatter
     }
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.taskTitle ?? "Focus Session")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    if let tagName = session.tagName, let tagColor = session.tagColor {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(colorFromString(tagColor))
-                                .frame(width: 8, height: 8)
-                            
-                            Text(tagName)
-                                .font(.custom("Geist", size: 12))
-                                .fontWeight(.light)
-                                .foregroundColor(.secondary)
-                        }
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }
+    
+        var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.taskTitle ?? "Focus Session")
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+
+                if let tagName = session.tagName, let tagColor = session.tagColor {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(colorFromString(tagColor))
+                            .frame(width: 8, height: 8)
+
+                        Text(tagName)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.light)
+                            .foregroundColor(.secondary)
                     }
                 }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(session.actualDuration / 60) min")
-                        .font(.custom("Geist", size: 14))
-                        .fontWeight(.medium)
-                        .foregroundColor(.blue)
-                    
-                    Text(dateFormatter.string(from: session.createdAt))
-                        .font(.custom("Geist", size: 11))
-                        .foregroundColor(.secondary)
-                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                // Duration as pill
+                Text("\(session.actualDuration / 60) min")
+                    .font(.custom("Geist", size: 12))
+                    .fontWeight(.medium)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.1))
+                    )
+
+                // Time only (no date)
+                Text(timeFormatter.string(from: session.createdAt))
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 4)
     }
     
     private func colorFromString(_ colorString: String) -> Color {
