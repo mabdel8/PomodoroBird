@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 
+
 // MARK: - Task Selector Sheet
 struct TaskSelectorSheet: View {
     let availableTasks: [Task]
@@ -18,68 +19,18 @@ struct TaskSelectorSheet: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // No task option
-                Button(action: { onTaskSelected(nil) }) {
-                    HStack {
-                        Text("No specific task")
-                            .font(.custom("Geist", size: 16))
-                            .fontWeight(.light)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        if selectedTask == nil {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.blue)
-                        }
+            ScrollView {
+                VStack(spacing: 32) {
+                    headerSection
+                    quickStartSection
+                    if !availableTasks.isEmpty {
+                        availableTasksSection
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 16)
+                    Spacer(minLength: 100)
                 }
-                .buttonStyle(PlainButtonStyle())
-                
-                Divider()
-                
-                // Available tasks
-                List {
-                    ForEach(availableTasks, id: \.id) { task in
-                        Button(action: { onTaskSelected(task) }) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(task.title)
-                                        .font(.custom("Geist", size: 16))
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.primary)
-                                    
-                                    if let tagName = task.tagName, let tagColor = task.tagColor {
-                                        HStack(spacing: 4) {
-                                            Circle()
-                                                .fill(colorFromString(tagColor))
-                                                .frame(width: 6, height: 6)
-                                            Text(tagName)
-                                                .font(.custom("Geist", size: 12))
-                                                .fontWeight(.light)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                                
-                                Spacer()
-                                
-                                if selectedTask?.id == task.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundColor(.blue)
-                                }
-                            }
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .listRowSeparator(.hidden)
-                    }
-                }
-                .listStyle(PlainListStyle())
             }
-            .navigationTitle("Select Task")
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -91,6 +42,122 @@ struct TaskSelectorSheet: View {
                 }
             }
         }
+    }
+    
+    private var headerSection: some View {
+        VStack(spacing: 8) {
+            Text("Select Task")
+                .font(.system(size: 24, weight: .semibold, design: .default))
+                .foregroundColor(.primary)
+        }
+        .padding(.top, 32)
+        .padding(.bottom, 16)
+    }
+    
+    private var quickStartSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Start")
+                .font(.custom("Geist", size: 16))
+                .fontWeight(.medium)
+                .foregroundColor(.black)
+            
+            Button(action: { onTaskSelected(nil) }) {
+                HStack {
+                    Text("No specific task")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    if selectedTask == nil {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.blue)
+                            .font(.system(size: 20))
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(height: 44)
+                .background(quickStartBackground)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+    }
+    
+    private var quickStartBackground: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(selectedTask == nil ? Color.blue : Color.gray.opacity(0.3), lineWidth: selectedTask == nil ? 2 : 1)
+            )
+    }
+    
+    private var availableTasksSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Available Tasks")
+                .font(.custom("Geist", size: 16))
+                .fontWeight(.medium)
+                .foregroundColor(.black)
+            
+            VStack(spacing: 8) {
+                ForEach(availableTasks, id: \.id) { task in
+                    taskButton(for: task)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+    }
+    
+    private func taskButton(for task: Task) -> some View {
+        Button(action: { onTaskSelected(task) }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    if let tagName = task.tagName, let tagColor = task.tagColor {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(colorFromString(tagColor))
+                                .frame(width: 8, height: 8)
+                            Text(tagName)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                if selectedTask?.id == task.id {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 20))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(height: 60)
+            .background(taskBackground(for: task))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private func taskBackground(for task: Task) -> some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(selectedTask?.id == task.id ? Color.blue : Color.gray.opacity(0.3), lineWidth: selectedTask?.id == task.id ? 2 : 1)
+            )
     }
     
     private func colorFromString(_ colorString: String) -> Color {
@@ -111,10 +178,22 @@ struct CompletionPopupView: View {
     let onComplete: () -> Void
     let onCancel: () -> Void
     
+    private func formatTimeWithSeconds(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        let secs = seconds % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        } else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
+    }
+    
     var body: some View {
         ZStack {
             // Background overlay
-            Color.black.opacity(0.4)
+            Color.black.opacity(0.6)
                 .ignoresSafeArea()
                 .onTapGesture {
                     onCancel()
@@ -126,52 +205,52 @@ struct CompletionPopupView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 48))
-                        .foregroundColor(.green)
+                        .foregroundColor(.black)
                     
                     Text("Session Complete")
                         .font(.custom("Geist", size: 24))
                         .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.black)
                 }
                 
                 // Session details
                 if let session = session {
                     VStack(spacing: 16) {
-                        // Focus time
+                        // Focus time with exact seconds
                         HStack {
                             Image(systemName: "clock.fill")
                                 .font(.system(size: 16))
-                                .foregroundColor(.green)
+                                .foregroundColor(.black)
                             
                             Text("Focus time:")
                                 .font(.custom("Geist", size: 16))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.gray)
                             
                             Spacer()
                             
-                            Text("\(session.actualDuration / 60) minutes")
+                            Text(formatTimeWithSeconds(session.actualDuration))
                                 .font(.custom("Geist", size: 16))
                                 .fontWeight(.medium)
-                                .foregroundColor(.primary)
+                                .foregroundColor(.black)
                         }
                         
-                        // Break time (if any)
+                        // Break time with exact seconds (if any)
                         if session.breakDuration > 0 {
                             HStack {
                                 Image(systemName: "cup.and.heat.waves")
                                     .font(.system(size: 16))
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(.gray)
                                 
                                 Text("Break time:")
                                     .font(.custom("Geist", size: 16))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.gray)
                                 
                                 Spacer()
                                 
-                                Text("\(session.breakDuration / 60) minutes")
+                                Text(formatTimeWithSeconds(session.breakDuration))
                                     .font(.custom("Geist", size: 16))
                                     .fontWeight(.medium)
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(.black)
                             }
                         }
                         
@@ -180,18 +259,18 @@ struct CompletionPopupView: View {
                             HStack {
                                 Image(systemName: "target")
                                     .font(.system(size: 16))
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.black)
                                 
                                 Text("Task:")
                                     .font(.custom("Geist", size: 16))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.gray)
                                 
                                 Spacer()
                                 
                                 Text(taskTitle)
                                     .font(.custom("Geist", size: 16))
                                     .fontWeight(.medium)
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(.black)
                                     .lineLimit(1)
                             }
                         }
@@ -201,7 +280,7 @@ struct CompletionPopupView: View {
                 
                 Text("Mark this session as completed?")
                     .font(.custom("Geist", size: 16))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
                 
                 // Action buttons
@@ -211,12 +290,16 @@ struct CompletionPopupView: View {
                         Text("Cancel")
                             .font(.custom("Geist", size: 16))
                             .fontWeight(.medium)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.gray)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.gray.opacity(0.1))
+                                    .fill(Color.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                    )
                             )
                     }
                     
@@ -230,7 +313,7 @@ struct CompletionPopupView: View {
                             .frame(height: 48)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.green)
+                                    .fill(Color.black)
                             )
                     }
                 }
@@ -238,8 +321,8 @@ struct CompletionPopupView: View {
             .padding(32)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(.regularMaterial)
-                    .shadow(color: .black.opacity(0.1), radius: 20, x: 0, y: 10)
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 10)
             )
             .padding(.horizontal, 24)
         }
@@ -411,65 +494,119 @@ struct QuickTaskCreationSheet: View {
     let onCancel: () -> Void
     @Environment(\.dismiss) private var dismiss
     
+    private var isFormValid: Bool {
+        !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    private func tagColor(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
+        }
+    }
+    
+    private func tagBackgroundColor(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return Color(hex: "F0F8FF") // Light blue
+        case "green": return Color(hex: "F0FFF0") // Light green
+        case "purple": return Color(hex: "F9F0FF") // Light purple
+        case "orange": return Color(hex: "FFF8F0") // Light orange
+        case "red": return Color(hex: "FFF0F0") // Light red
+        default: return Color(hex: "F0F8FF")
+        }
+    }
+    
     var body: some View {
         NavigationView {
-            VStack(spacing: 32) {
-                VStack(spacing: 16) {
-                    Text("Create Task to Start")
-                        .font(.custom("Geist", size: 24))
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+            ScrollView {
+                VStack(spacing: 32) {
+                    // Header Section
+                    VStack(spacing: 8) {
+                        Text("Quick Start")
+                            .font(.system(size: 24, weight: .semibold, design: .default))
+                            .foregroundColor(.primary)
+                    }
+                    .padding(.top, 32)
+                    .padding(.bottom, 16)
                     
-                    Text("What would you like to focus on?")
-                        .font(.custom("Geist", size: 16))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                
-                VStack(spacing: 24) {
-                    // Task Name Input
+                    // Task Name Section
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Task Name")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        TextField("Enter task name", text: $taskName)
                             .font(.custom("Geist", size: 16))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                        
+                        TextField("What would you like to focus on?", text: $taskName)
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .frame(height: 44)
                             .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color.gray.opacity(0.08))
-                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.white)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color(hex: "E5E5E5"), lineWidth: 1)
+                                    )
                             )
+                            .submitLabel(.done)
                     }
+                    .padding(.horizontal, 24)
                     
-                    // Tag Selection
+                    // Category Section
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Category (Optional)")
-                            .font(.custom("Geist", size: 18))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
+                        Text("Category")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
                         
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
                             ForEach(tags, id: \.id) { tag in
-                                TaskCreationTagChip(
-                                    tag: tag,
-                                    isSelected: selectedTag?.id == tag.id
-                                ) {
-                                    selectedTag = selectedTag?.id == tag.id ? nil : tag
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedTag = tag
+                                    }
+                                }) {
+                                    HStack(spacing: 12) {
+                                        Circle()
+                                            .fill(tagColor(tag.color))
+                                            .frame(width: 16, height: 16)
+                                        
+                                        Text(tag.name)
+                                            .font(.custom("Geist", size: 16))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 14)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(selectedTag?.id == tag.id ? tagBackgroundColor(tag.color) : Color.white)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 20)
+                                                    .stroke(selectedTag?.id == tag.id ? tagColor(tag.color) : tagColor(tag.color).opacity(0.3), lineWidth: 1.5)
+                                            )
+                                    )
                                 }
+                                .scaleEffect(selectedTag?.id == tag.id ? 1.02 : 1.0)
+                                .animation(.easeInOut(duration: 0.2), value: selectedTag?.id == tag.id)
                             }
                         }
                     }
+                    .padding(.horizontal, 24)
+                    
+                    Spacer(minLength: 40)
                 }
-                
-                Spacer()
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 16)
-            .navigationTitle("Quick Start")
+            .background(Color(.systemBackground))
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -477,7 +614,8 @@ struct QuickTaskCreationSheet: View {
                         onCancel()
                         dismiss()
                     }
-                    .font(.custom("Geist", size: 17))
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
                     .foregroundColor(.secondary)
                 }
                 
@@ -486,10 +624,10 @@ struct QuickTaskCreationSheet: View {
                         onSave()
                         dismiss()
                     }
-                    .font(.custom("Geist", size: 17))
+                    .font(.custom("Geist", size: 16))
                     .fontWeight(.semibold)
-                    .foregroundColor(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
-                    .disabled(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .foregroundColor(isFormValid ? .black : .gray)
+                    .disabled(!isFormValid)
                 }
             }
         }

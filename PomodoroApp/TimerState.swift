@@ -377,10 +377,8 @@ class TimerStateManager {
     // MARK: - Setup and Data Management
     
     func setupInitialData() {
-        // Create default tags if none exist
-        if tags.isEmpty {
-            createDefaultTags()
-        }
+        // Always ensure default tags exist and clean up duplicates
+        createDefaultTags()
         
         // Create timer state if none exists
         if timerStates.isEmpty {
@@ -422,18 +420,24 @@ class TimerStateManager {
     }
     
     private func createDefaultWorkingTask() {
-        // Find the "Work" tag or create it if it doesn't exist
-        let workTag = tags.first(where: { $0.name == "Work" }) ?? {
-            let tag = FocusTag(name: "Work", color: "blue")
-            modelContext.insert(tag)
-            return tag
-        }()
+        // Ensure default tags exist first
+        createDefaultTags()
         
-        // Create the default "Working" task
-        let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
-        modelContext.insert(defaultTask)
-        
+        // Find the "Work" tag by querying database directly
         do {
+            var descriptor = FetchDescriptor<FocusTag>()
+            descriptor.predicate = #Predicate<FocusTag> { $0.name == "Work" }
+            let workTags = try modelContext.fetch(descriptor)
+            
+            guard let workTag = workTags.first else {
+                print("Error: Work tag not found after creating default tags")
+                return
+            }
+            
+            // Create the default "Working" task
+            let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
+            modelContext.insert(defaultTask)
+            
             try modelContext.save()
         } catch {
             print("Error creating default working task: \(error)")
@@ -457,6 +461,9 @@ class TimerStateManager {
     }
     
     private func createDefaultTags() {
+        // First, clean up any existing duplicates
+        cleanupDuplicateTags()
+        
         let defaultTags = [
             ("Work", "blue"),
             ("Personal", "green"),
@@ -466,14 +473,53 @@ class TimerStateManager {
         ]
         
         for (name, color) in defaultTags {
-            let tag = FocusTag(name: name, color: color)
-            modelContext.insert(tag)
+            // Check if tag with this name already exists by querying database directly
+            do {
+                var descriptor = FetchDescriptor<FocusTag>()
+                descriptor.predicate = #Predicate<FocusTag> { $0.name == name }
+                let existingTags = try modelContext.fetch(descriptor)
+                
+                if existingTags.isEmpty {
+                    let tag = FocusTag(name: name, color: color)
+                    modelContext.insert(tag)
+                }
+            } catch {
+                print("Error checking for existing tag '\(name)': \(error)")
+                // If query fails, try to create the tag anyway (SwiftData will handle duplicates)
+                let tag = FocusTag(name: name, color: color)
+                modelContext.insert(tag)
+            }
         }
         
         do {
             try modelContext.save()
         } catch {
             print("Error saving default tags: \(error)")
+        }
+    }
+    
+    private func cleanupDuplicateTags() {
+        do {
+            // Fetch all tags
+            let descriptor = FetchDescriptor<FocusTag>()
+            let allTags = try modelContext.fetch(descriptor)
+            
+            // Group tags by name
+            let tagGroups = Dictionary(grouping: allTags) { $0.name }
+            
+            // For each group with duplicates, keep the first one and delete the rest
+            for (name, tags) in tagGroups where tags.count > 1 {
+                print("Found \(tags.count) duplicate tags for '\(name)', removing \(tags.count - 1) duplicates")
+                
+                // Keep the first tag, delete the rest
+                for i in 1..<tags.count {
+                    modelContext.delete(tags[i])
+                }
+            }
+            
+            try modelContext.save()
+        } catch {
+            print("Error cleaning up duplicate tags: \(error)")
         }
     }
     
@@ -530,11 +576,16 @@ class TimerStateManager {
                     taskForSession = existingTask
                 } else {
                     // Create new Working task
-                    let workTag = tags.first(where: { $0.name == "Work" }) ?? {
-                        let tag = FocusTag(name: "Work", color: "blue")
-                        modelContext.insert(tag)
-                        return tag
-                    }()
+                    createDefaultTags() // Ensure default tags exist
+                    
+                    // Query database directly for Work tag
+                    var tagDescriptor = FetchDescriptor<FocusTag>()
+                    tagDescriptor.predicate = #Predicate<FocusTag> { $0.name == "Work" }
+                    guard let workTag = try? modelContext.fetch(tagDescriptor).first else {
+                        print("Error: Work tag not found after creating default tags")
+                        return
+                    }
+                    
                     let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
                     modelContext.insert(defaultTask)
                     try? modelContext.save()
@@ -542,11 +593,16 @@ class TimerStateManager {
                 }
             } catch {
                 // Fallback: create new task
-                let workTag = tags.first(where: { $0.name == "Work" }) ?? {
-                    let tag = FocusTag(name: "Work", color: "blue")
-                    modelContext.insert(tag)
-                    return tag
-                }()
+                createDefaultTags() // Ensure default tags exist
+                
+                // Query database directly for Work tag
+                var tagDescriptor = FetchDescriptor<FocusTag>()
+                tagDescriptor.predicate = #Predicate<FocusTag> { $0.name == "Work" }
+                guard let workTag = try? modelContext.fetch(tagDescriptor).first else {
+                    print("Error: Work tag not found after creating default tags")
+                    return
+                }
+                
                 let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
                 modelContext.insert(defaultTask)
                 try? modelContext.save()
@@ -729,6 +785,20 @@ class TimerStateManager {
     }
     
     func stopTimer() {
+        // For focus sessions, pause the timer and show completion dialog
+        if let session = currentSession, !isBreakSession {
+            // Pause the timer instead of stopping it
+            pauseTimer()
+            
+            // Update session with current progress
+            session.endTime = Date()
+            session.actualDuration = Int(totalTime - timeRemaining)
+            sessionToComplete = session
+            showingCompletionDialog = true
+            return // Wait for user confirmation
+        }
+        
+        // For break sessions, actually stop the timer
         timer?.invalidate()
         timer = nil
         isTimerRunning = false
@@ -742,16 +812,7 @@ class TimerStateManager {
             liveActivityManager.endCurrentActivity(completed: false)
         }
         
-        // Show completion dialog for focus sessions
-        if let session = currentSession, !isBreakSession {
-            session.endTime = Date()
-            session.actualDuration = Int(totalTime - timeRemaining)
-            sessionToComplete = session
-            showingCompletionDialog = true
-            return // Don't reset yet, wait for user confirmation
-        }
-        
-        // For break sessions, just reset to normal state (completion logic moved to completeSession())
+        // Reset break session state
         if isBreakSession {
             isBreakSession = false
             timeRemaining = selectedDuration * 60
@@ -772,6 +833,20 @@ class TimerStateManager {
     
     func confirmSessionCompletion() {
         guard let session = sessionToComplete else { return }
+        
+        // Stop the timer completely
+        timer?.invalidate()
+        timer = nil
+        isTimerRunning = false
+        isPaused = false
+        
+        // Cancel background notification since timer is stopped
+        notificationManager.cancelTimerNotifications()
+        
+        // End Live Activity if available
+        if #available(iOS 16.1, *), let liveActivityManager = liveActivityManager {
+            liveActivityManager.endCurrentActivity(completed: true)
+        }
         
         // Mark session as completed
         session.isCompleted = true
@@ -835,13 +910,10 @@ class TimerStateManager {
     }
     
     func cancelSessionCompletion() {
-        // Don't mark as completed, just reset
-        timeRemaining = selectedDuration * 60
-        totalTime = selectedDuration * 60
-        currentSession = nil
-        totalBreakTime = 0 // Reset break time for next session
+        // Resume the timer instead of resetting
+        resumeTimer()
         
-        // Close dialog
+        // Close dialog but keep the session active
         showingCompletionDialog = false
         sessionToComplete = nil
     }
