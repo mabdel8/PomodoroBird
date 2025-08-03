@@ -36,12 +36,20 @@ struct ContentView: View {
                 }
                 .tag(2)
             
-            SettingsView()
+            CollectionView()
                 .tabItem {
-                    Image(selectedTab == 3 ? "cogfilled" : "cog")
-                    Text("Settings")
+                    Image(selectedTab == 3 ? "collectionsfilled" : "collections")
+                        .font(.system(size: 18))
+                    Text("Collection")
                 }
                 .tag(3)
+            
+            SettingsView()
+                .tabItem {
+                    Image(selectedTab == 4 ? "cogfilled" : "cog")
+                    Text("Settings")
+                }
+                .tag(4)
         }
         .accentColor(.black)
     }

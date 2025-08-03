@@ -220,9 +220,9 @@ class TimerStateManager {
         // Handle hatching animation states
         if isHatching {
             if showFinalResult {
-                // Show final result after animation
+                // Show final result after animation - the hatched bird!
                 if let earnedBird = hatchedBird {
-                    return earnedBird.eggImageName // Show the bird's egg
+                    return earnedBird.birdImageName // Show the actual bird that hatched
                 } else {
                     return "nobird" // Show nobird ghost
                 }
@@ -234,12 +234,12 @@ class TimerStateManager {
             }
         }
         
-        // If session is not active, show post-session egg
+        // If session is not active, show post-session result
         if !isSessionActive {
             if showNoBirdEgg {
-                return "nobird" // Show nobird egg for short sessions
+                return "nobird" // Show nobird for short sessions
             } else if let earnedBird = lastEarnedBird {
-                return earnedBird.eggImageName // Show the specific bird egg they earned
+                return earnedBird.birdImageName // Show the bird they earned
             }
         }
         
@@ -257,7 +257,7 @@ class TimerStateManager {
     }
     
     private func generateRandomBird() -> BirdType {
-        return BirdType.allCases.randomElement() ?? .sparrow
+        return BirdType.allCases.randomElement() ?? .doctorbird
     }
     
     // MARK: - In-Place Animation Functions

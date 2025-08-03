@@ -149,9 +149,9 @@ struct TimerView: View {
                                 .rotationEffect(.degrees(stateManager.eggRotation))
                                 .shadow(
                                     color: stateManager.showFinalResult ? 
-                                        (stateManager.hatchedBird != nil ? Color.yellow.opacity(0.6) : Color.purple.opacity(0.4)) : 
+                                        (stateManager.hatchedBird != nil ? Color.green.opacity(0.6) : Color.purple.opacity(0.4)) : 
                                         Color.clear,
-                                    radius: stateManager.showFinalResult ? 20 : 0,
+                                    radius: stateManager.showFinalResult ? 25 : 0,
                                     x: 0,
                                     y: 0
                                 )
@@ -378,9 +378,9 @@ struct TimerView: View {
                 .rotationEffect(.degrees(stateManager.eggRotation))
                 .shadow(
                     color: stateManager.showFinalResult ? 
-                        (stateManager.hatchedBird != nil ? Color.yellow.opacity(0.6) : Color.purple.opacity(0.4)) : 
+                        (stateManager.hatchedBird != nil ? Color.green.opacity(0.6) : Color.purple.opacity(0.4)) : 
                         Color.clear,
-                    radius: stateManager.showFinalResult ? 20 : 0,
+                    radius: stateManager.showFinalResult ? 25 : 0,
                     x: 0,
                     y: 0
                 )
