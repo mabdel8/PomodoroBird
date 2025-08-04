@@ -12,38 +12,24 @@ import ActivityKit
 
 @main
 struct PomodoroAppApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            FocusTag.self,
-            Task.self,
-            FocusSession.self,
-            AppTimerState.self,
-            CollectedBird.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            print("Error creating ModelContainer: \(error)")
-            // Fallback to in-memory only
-            let fallbackConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-            do {
-                return try ModelContainer(for: schema, configurations: [fallbackConfiguration])
-            } catch {
-                fatalError("Could not create ModelContainer: \(error)")
-            }
-        }
-    }()
+    @StateObject private var cloudKitManager = CloudKitManager.shared
+    
+    var sharedModelContainer: ModelContainer {
+        return CloudKitManager.shared.modelContainer
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(cloudKitManager)
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     scheduleBackgroundAppRefresh()
                 }
                 .onOpenURL { url in
                     handleDeepLink(url)
+                }
+                .onAppear {
+                    cloudKitManager.checkCloudKitAvailability()
                 }
         }
         .modelContainer(sharedModelContainer)

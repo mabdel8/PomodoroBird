@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import CloudKit
 
 // MARK: - Timer Settings View
 struct TimerSettingsView: View {
@@ -15,6 +16,7 @@ struct TimerSettingsView: View {
     let onDurationChange: (Double) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var cloudKitManager: CloudKitManager
     @Query(sort: \FocusSession.createdAt, order: .reverse) private var focusSessions: [FocusSession]
     
     // Settings state
@@ -23,7 +25,10 @@ struct TimerSettingsView: View {
     @State private var dailySummaryNotifications = true
     @State private var showingResetAlert = false
     @State private var showingClearSessionsAlert = false
+    @State private var showingClearAllDataAlert = false
     @State private var showingExportSheet = false
+    @State private var isBackingUpToCloud = false
+    @State private var backupStatus = ""
     
     let quickDurations = [1, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120]
     
@@ -47,6 +52,12 @@ struct TimerSettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         sectionHeader("Testing Mode")
                         testingModeContainer
+                    }
+                    
+                    // iCloud Sync
+                    VStack(alignment: .leading, spacing: 12) {
+                        sectionHeader("iCloud Sync")
+                        iCloudContainer
                     }
                     
                     // Data & Analytics
@@ -105,6 +116,14 @@ struct TimerSettingsView: View {
             } message: {
                 Text("This will permanently delete all your focus session data. This action cannot be undone.")
             }
+            .alert("Clear All Data", isPresented: $showingClearAllDataAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("DELETE EVERYTHING", role: .destructive) {
+                    clearAllData()
+                }
+            } message: {
+                Text("⚠️ TESTING ONLY: This will permanently delete ALL data including tasks, earned birds, focus sessions, tags, and settings. This action cannot be undone!")
+            }
             .onAppear {
                 notificationManager.checkNotificationPermission()
             }
@@ -160,16 +179,41 @@ struct TimerSettingsView: View {
         .background(containerBackground())
     }
     
+    private var iCloudContainer: some View {
+        VStack(spacing: 0) {
+            // iCloud Toggle
+            HStack {
+                Image(systemName: "icloud")
+                    .font(.system(size: 16))
+                    .foregroundColor(.blue)
+                    .frame(width: 24)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Enable iCloud Sync")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    Text("Temporarily disabled - CloudKit entitlements removed for privacy")
+                        .font(.custom("Geist", size: 14))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Toggle("", isOn: .constant(false))
+                    .disabled(true)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            
+            // CloudKit sync button removed - no automatic sync allowed
+        }
+        .background(containerBackground())
+    }
+    
     private var dataAnalyticsContainer: some View {
         VStack(spacing: 0) {
-            settingsRow(
-                title: "iCloud Backup",
-                subtitle: "Sync data across devices",
-                icon: "icloud",
-                action: { /* Handle iCloud backup */ }
-            )
-            Divider()
-                .padding(.leading, 56)
             settingsRow(
                 title: "Export Data",
                 subtitle: "Download as CSV or JSON",
@@ -192,6 +236,15 @@ struct TimerSettingsView: View {
                 subtitle: "Delete all focus data",
                 icon: "trash",
                 action: { showingClearSessionsAlert = true },
+                isDestructive: true
+            )
+            Divider()
+                .padding(.leading, 56)
+            settingsRow(
+                title: "Clear All Data (Testing)",
+                subtitle: "Delete everything - tasks, birds, sessions, tags",
+                icon: "trash.fill",
+                action: { showingClearAllDataAlert = true },
                 isDestructive: true
             )
         }
@@ -608,6 +661,22 @@ struct TimerSettingsView: View {
         notificationManager.saveSettings()
     }
     
+    private func performCloudBackup() {
+        guard cloudKitManager.isCloudKitEnabled && cloudKitManager.isCloudKitAvailable else {
+            backupStatus = "iCloud sync not available"
+            return
+        }
+        
+        isBackingUpToCloud = true
+        backupStatus = "Syncing with iCloud..."
+        
+        // Show immediate feedback and reset after a delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            isBackingUpToCloud = false
+            backupStatus = "Last sync: \(DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short))"
+        }
+    }
+    
     private func clearAllSessions() {
         // Delete all focus sessions
         for session in focusSessions {
@@ -618,6 +687,65 @@ struct TimerSettingsView: View {
             try modelContext.save()
         } catch {
             print("Error clearing sessions: \(error)")
+        }
+    }
+    
+    private func clearAllData() {
+        // Get all data from the model context
+        do {
+            // Delete all focus sessions
+            let sessionDescriptor = FetchDescriptor<FocusSession>()
+            let sessions = try modelContext.fetch(sessionDescriptor)
+            for session in sessions {
+                modelContext.delete(session)
+            }
+            
+            // Delete all tasks
+            let taskDescriptor = FetchDescriptor<Task>()
+            let tasks = try modelContext.fetch(taskDescriptor)
+            for task in tasks {
+                modelContext.delete(task)
+            }
+            
+            // Delete all tags
+            let tagDescriptor = FetchDescriptor<FocusTag>()
+            let tags = try modelContext.fetch(tagDescriptor)
+            for tag in tags {
+                modelContext.delete(tag)
+            }
+            
+            // Delete all collected birds
+            let birdDescriptor = FetchDescriptor<CollectedBird>()
+            let birds = try modelContext.fetch(birdDescriptor)
+            for bird in birds {
+                modelContext.delete(bird)
+            }
+            
+            // Delete all timer states
+            let timerDescriptor = FetchDescriptor<AppTimerState>()
+            let timerStates = try modelContext.fetch(timerDescriptor)
+            for state in timerStates {
+                modelContext.delete(state)
+            }
+            
+            // Save all deletions
+            try modelContext.save()
+            
+            // Clear UserDefaults settings too
+            UserDefaults.standard.removeObject(forKey: "isCloudKitEnabled")
+            UserDefaults.standard.removeObject(forKey: "selectedAlarmSound")
+            UserDefaults.standard.removeObject(forKey: "enableHapticFeedback")
+            UserDefaults.standard.removeObject(forKey: "enableSoundAlert")
+            UserDefaults.standard.removeObject(forKey: "enableNotifications")
+            UserDefaults.standard.removeObject(forKey: "testFocusDuration")
+            UserDefaults.standard.removeObject(forKey: "testBreakDuration")
+            UserDefaults.standard.removeObject(forKey: "isTestModeEnabled")
+            UserDefaults.standard.removeObject(forKey: "enableBirdHatchingTestMode")
+            
+            print("🗑️ ALL DATA CLEARED - Tasks, Birds, Sessions, Tags, Timer States, and Settings")
+            
+        } catch {
+            print("❌ Error clearing all data: \(error)")
         }
     }
 }

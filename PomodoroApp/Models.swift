@@ -63,10 +63,10 @@ enum BirdType: String, CaseIterable, Codable {
 
 @Model
 final class FocusTag {
-    var id: UUID
-    var name: String
-    var color: String
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var color: String = "blue"
+    var createdAt: Date = Date()
     
     init(name: String = "", color: String = "blue") {
         self.id = UUID()
@@ -78,13 +78,13 @@ final class FocusTag {
 
 @Model
 final class Task {
-    var id: UUID
-    var title: String
-    var isCompleted: Bool
-    var createdAt: Date
+    var id: UUID = UUID()
+    var title: String = ""
+    var isCompleted: Bool = false
+    var createdAt: Date = Date()
     var completedAt: Date?
-    var plannedDate: Date // Date when task is planned to be done
-    var duration: Int // duration in minutes
+    var plannedDate: Date = Date() // Date when task is planned to be done
+    var duration: Int = 25 // duration in minutes
     
     // Tag relationship stored as values for CloudKit compatibility
     var tagId: UUID?
@@ -114,16 +114,16 @@ final class Task {
 
 @Model
 final class FocusSession {
-    var id: UUID
-    var duration: Int
-    var actualDuration: Int
-    var isCompleted: Bool
-    var wasBreakTaken: Bool
-    var breakDuration: Int // Total break time in seconds
+    var id: UUID = UUID()
+    var duration: Int = 1500
+    var actualDuration: Int = 0
+    var isCompleted: Bool = false
+    var wasBreakTaken: Bool = false
+    var breakDuration: Int = 0 // Total break time in seconds
     var startTime: Date?
     var endTime: Date?
-    var createdAt: Date
-    var sessionType: String // "focus" or "break"
+    var createdAt: Date = Date()
+    var sessionType: String = "focus" // "focus" or "break"
     
     // Task reference for CloudKit compatibility
     var taskId: UUID?
@@ -162,13 +162,13 @@ final class FocusSession {
 
 @Model
 final class AppTimerState {
-    var id: UUID
-    var isRunning: Bool
-    var isPaused: Bool
+    var id: UUID = UUID()
+    var isRunning: Bool = false
+    var isPaused: Bool = false
     var currentSessionId: UUID?
-    var timeRemaining: Int
-    var selectedDuration: Int
-    var isBreakSession: Bool // Track if current session is a break
+    var timeRemaining: Int = 1500
+    var selectedDuration: Int = 1500
+    var isBreakSession: Bool = false // Track if current session is a break
     
     init() {
         self.id = UUID()
@@ -183,9 +183,9 @@ final class AppTimerState {
 
 @Model
 final class CollectedBird {
-    var id: UUID
-    var birdTypeRawValue: String // Store the raw value of BirdType enum
-    var collectedAt: Date
+    var id: UUID = UUID()
+    var birdTypeRawValue: String = "" // Store the raw value of BirdType enum
+    var collectedAt: Date = Date()
     var fromSessionId: UUID? // Reference to the focus session that earned this bird
     
     var birdType: BirdType? {
