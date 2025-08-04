@@ -468,30 +468,8 @@ struct TaskManagerView: View {
 
     
     private func setupInitialTags() {
-        if tags.isEmpty {
-            createDefaultTags()
-        }
-    }
-    
-    private func createDefaultTags() {
-        let defaultTags = [
-            ("Work", "blue"),
-            ("Personal", "green"),
-            ("Study", "purple"),
-            ("Exercise", "orange"),
-            ("Reading", "red")
-        ]
-        
-        for (name, color) in defaultTags {
-            let tag = FocusTag(name: name, color: color)
-            modelContext.insert(tag)
-        }
-        
-        do {
-            try modelContext.save()
-        } catch {
-            print("Error saving default tags: \(error)")
-        }
+        // Tags are now created centrally in TimerStateManager
+        // This prevents duplicate tag creation
     }
     
     private func createNewTask() {
