@@ -12,6 +12,7 @@ import Foundation
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appStateManager: AppStateManager
     @Query(sort: \FocusTag.name) private var tags: [FocusTag]
     @Query(filter: #Predicate<Task> { !$0.isCompleted }, sort: \Task.createdAt, order: .reverse) private var availableTasks: [Task]
     @Query private var timerStates: [AppTimerState]
@@ -48,7 +49,14 @@ struct ContentView: View {
                 }
                 .tag(1)
             
-            AnalyticsView()
+            Group {
+                if appStateManager.isSubscribed {
+                    AnalyticsView()
+                } else {
+                    PaywallPromptView()
+                        .environmentObject(appStateManager)
+                }
+            }
                 .tabItem {
                     Image(selectedTab == 2 ? "chartsfilled" : "charts")
                     Text("Analytics")
@@ -68,6 +76,28 @@ struct ContentView: View {
         .accentColor(.black)
         .onAppear {
             initializeStateManager()
+        }
+        .sheet(isPresented: $appStateManager.showOnboarding) {
+            OnboardingView(
+                appName: "Pomodoro Timer",
+                features: [
+                    Feature(title: "Boost Productivity", description: "Stay focused with timed work and break sessions.", icon: "clock"),
+                    Feature(title: "Stay Motivated", description: "Earn unique rewards after each session.", icon: "star"),
+                    Feature(title: "Track Your Progress", description: "View your focus stats and trends over time.", icon: "chart.bar"),
+                    Feature(title: "Minimal & Ad-Free", description: "Enjoy a clean, distraction-free experience.", icon: "sparkles")
+                ],
+                color: Color.blue
+            )
+            .onDisappear {
+                appStateManager.onboardingCompleted()
+            }
+        }
+        .sheet(isPresented: $appStateManager.showPaywall) {
+            PurchaseView(isPresented: $appStateManager.showPaywall)
+                .environmentObject(appStateManager.purchaseManager)
+                .onDisappear {
+                    appStateManager.paywallDismissed()
+                }
         }
     }
     

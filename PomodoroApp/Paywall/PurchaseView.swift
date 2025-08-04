@@ -1,5 +1,5 @@
 // PurchaseView SwiftUI
-// Created by Adam Lyttle on 7/18/2024
+// Created by Abdalla Abdelmagid on 7/31/2025
 
 // Make cool stuff and share your build with me:
 
@@ -31,7 +31,7 @@ struct PurchaseView: View {
     @State private var freeTrial: Bool = true
     @State private var selectedProductId: String = ""
     
-    let color: Color = Color.blue
+    let color: Color = Color.black
     
     private let allowCloseAfter: CGFloat = 5.0 //time in seconds until close is allows
     
@@ -74,15 +74,15 @@ struct PurchaseView: View {
     }
     
     var calculatePercentageSaved: Int {
-        if let calculateFullPrice = calculateFullPrice, let yearlyPriceString = purchaseModel.productDetails.first(where: {$0.duration == "year"})?.price {
+        if let calculateFullPrice = calculateFullPrice, let lifetimePriceString = purchaseModel.productDetails.first(where: {$0.duration == "lifetime"})?.price {
             
             let formatter = NumberFormatter()
             formatter.numberStyle = .currency
 
-            if let number = formatter.number(from: yearlyPriceString) {
-                let yearlyPriceDouble = number.doubleValue
+            if let number = formatter.number(from: lifetimePriceString) {
+                let lifetimePriceDouble = number.doubleValue
                 
-                let saved = Int(100 - ((yearlyPriceDouble / calculateFullPrice) * 100))
+                let saved = Int(100 - ((lifetimePriceDouble / calculateFullPrice) * 100))
                 
                 if saved > 0 {
                     return saved
@@ -107,6 +107,7 @@ struct PurchaseView: View {
                         .opacity(0.1 + 0.1 * self.progress)
                         .rotationEffect(Angle(degrees: -90))
                         .frame(width: 20, height: 20)
+                        .foregroundColor(.black)
                 }
                 else {
                     Image(systemName: "multiply")
@@ -118,6 +119,7 @@ struct PurchaseView: View {
                             isPresented = false
                         }
                         .opacity(0.2)
+                        .foregroundColor(.black)
                 }
             }
             .padding(.top)
@@ -125,7 +127,7 @@ struct PurchaseView: View {
             VStack (spacing: 20) {
                 
                 ZStack {
-                    Image("purchaseview-hero")
+                    Image("paywallPic")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(height: 150, alignment: .center)
@@ -142,11 +144,12 @@ struct PurchaseView: View {
                     Text("Unlock Premium Access")
                         .font(.system(size: 30, weight: .semibold))
                         .multilineTextAlignment(.center)
-                    VStack (alignment: .leading) {
-                        PurchaseFeatureView(title: "Add first feature here", icon: "star", color: color)
-                        PurchaseFeatureView(title: "Then add second feature", icon: "star", color: color)
-                        PurchaseFeatureView(title: "Put final feature here", icon: "star", color: color)
-                        PurchaseFeatureView(title: "Remove annoying paywalls", icon: "lock.square.stack", color: color)
+                        .foregroundColor(.black)
+                    VStack (alignment: .leading, spacing: 8) {
+                        PurchaseFeatureView(title: "Access full task planning", icon: "calendar", color: color)
+                        PurchaseFeatureView(title: "Gain deeper insights", icon: "chart", color: color)
+                        PurchaseFeatureView(title: "Get smart reminders", icon: "bell", color: color)
+                        PurchaseFeatureView(title: "Remove annoying paywalls", icon: "lock", color: color)
                     }
                     .font(.system(size: 19))
                     .padding(.top)
@@ -172,23 +175,28 @@ struct PurchaseView: View {
                                         VStack(alignment: .leading) {
                                             Text(productDetails.durationPlanName)
                                                 .font(.headline.bold())
+                                                .foregroundColor(.black)
                                             if productDetails.hasTrial {
                                                 Text("then "+productDetails.price+" per "+productDetails.duration)
                                                     .opacity(0.8)
+                                                    .foregroundColor(.black)
                                             }
                                             else {
                                                 HStack (spacing: 0) {
                                                     if let calculateFullPrice = calculateFullPrice, //round down
                                                        let calculateFullPriceLocalCurrency = toLocalCurrencyString(calculateFullPrice),
-                                                       calculateFullPrice > 0
+                                                       calculateFullPrice > 0,
+                                                       productDetails.duration != "lifetime"
                                                     {
                                                         //shows the full price based on weekly calculaation
                                                         Text("\(calculateFullPriceLocalCurrency) ")
                                                             .strikethrough()
                                                             .opacity(0.4)
+                                                            .foregroundColor(.black)
                                                         
                                                     }
-                                                    Text(" " + productDetails.price + " per " + productDetails.duration)
+                                                    Text(" " + productDetails.price)
+                                                        .foregroundColor(.black)
                                                 }
                                                 .opacity(0.8)
                                             }
@@ -201,18 +209,18 @@ struct PurchaseView: View {
                                         }
                                         else {
                                             VStack {
-                                                Text("SAVE \(calculatePercentageSaved)%")
+                                                Text("BEST VALUE")
                                                     .font(.caption.bold())
                                                     .foregroundColor(.white)
                                                     .padding(8)
                                             }
-                                            .background(Color.red)
+                                            .background(Color.black)
                                             .cornerRadius(6)
                                         }
                                         
                                         ZStack {
                                             Image(systemName: (selectedProductId == productDetails.productId) ? "circle.fill" : "circle")
-                                                .foregroundColor((selectedProductId == productDetails.productId) ? color : Color.primary.opacity(0.15))
+                                                .foregroundColor((selectedProductId == productDetails.productId) ? color : Color.black.opacity(0.15))
                                             
                                             if selectedProductId == productDetails.productId {
                                                 Image(systemName: "checkmark")
@@ -231,13 +239,13 @@ struct PurchaseView: View {
                                 .overlay(
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 6)
-                                            .stroke((selectedProductId == productDetails.productId) ? color : Color.primary.opacity(0.15), lineWidth: 1) // Border color and width
+                                            .stroke((selectedProductId == productDetails.productId) ? color : Color.black.opacity(0.15), lineWidth: 1) // Border color and width
                                         RoundedRectangle(cornerRadius: 6)
-                                            .foregroundColor((selectedProductId == productDetails.productId) ? color.opacity(0.05) : Color.primary.opacity(0.001))
+                                            .foregroundColor((selectedProductId == productDetails.productId) ? color.opacity(0.05) : Color.black.opacity(0.001))
                                     }
                                 )
                             }
-                            .accentColor(Color.primary)
+                            .accentColor(Color.black)
                             
                         }
                         
@@ -245,6 +253,7 @@ struct PurchaseView: View {
                             Toggle(isOn: $freeTrial) {
                                 Text("Free Trial Enabled")
                                     .font(.headline.bold())
+                                    .foregroundColor(.black)
                             }
                             .padding(.horizontal)
                             .padding(.vertical, 10)
@@ -261,7 +270,7 @@ struct PurchaseView: View {
                                 }
                             }
                         }
-                        .background(Color.primary.opacity(0.05))
+                        .background(Color.black.opacity(0.05))
                         .cornerRadius(6)
                         
                     }
@@ -274,6 +283,7 @@ struct PurchaseView: View {
                             //if purchasedModel.isPurchasing {
                             ProgressView()
                                 .opacity(purchaseModel.isPurchasing ? 1 : 0)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .black))
                             
                             Button(action: {
                                 //productManager.purchaseProduct()
@@ -309,6 +319,7 @@ struct PurchaseView: View {
                 .background {
                     if purchaseModel.isFetchingProducts {
                         ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
                     }
                 }
                 
@@ -341,6 +352,7 @@ struct PurchaseView: View {
                                 .foregroundColor(.gray), alignment: .bottom
                         )
                         .font(.footnote)
+                        .foregroundColor(.black)
                         
                         
                         Button("Terms of Use & Privacy Policy") {
@@ -368,11 +380,12 @@ struct PurchaseView: View {
                                         ])
                         }
                         .font(.footnote)
+                        .foregroundColor(.black)
                         
                         
                     }
                     //.font(.headline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.black)
                     .font(.system(size: 15))
                     
                     
@@ -384,6 +397,7 @@ struct PurchaseView: View {
             }
         }
         .padding(.horizontal)
+        .background(Color.white)
         .onAppear {
             selectedProductId = purchaseModel.productIds.last ?? ""
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -460,14 +474,76 @@ struct PurchaseView: View {
         
         var body: some View {
             HStack {
-                Image(systemName: icon)
+                CustomIconView(iconName: icon, color: color)
+                    .frame(width: 27, height: 27)
+                Text(title)
+                    .foregroundColor(.black)
+            }
+        }
+    }
+    
+    struct CustomIconView: View {
+        let iconName: String
+        let color: Color
+        
+        var body: some View {
+            Group {
+                switch iconName {
+                case "calendar":
+                    CalendarIcon()
+                case "chart":
+                    ChartIcon()
+                case "bell":
+                    BellIcon()
+                case "bird":
+                    BirdIcon()
+                case "lock":
+                    LockIcon()
+                default:
+                    Image(systemName: "questionmark")
+                }
+            }
+            .foregroundColor(color)
+        }
+    }
+    
+    struct CalendarIcon: View {
+        var body: some View {
+            Image(systemName: "calendar")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 27, height: 27, alignment: .center)
-                .clipped()
-                .foregroundColor(color)
-                Text(title)
-            }
+        }
+    }
+    
+    struct ChartIcon: View {
+        var body: some View {
+            Image(systemName: "chart.bar")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        }
+    }
+    
+    struct BellIcon: View {
+        var body: some View {
+            Image(systemName: "bell")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        }
+    }
+    
+    struct BirdIcon: View {
+        var body: some View {
+            Image(systemName: "bird")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        }
+    }
+    
+    struct LockIcon: View {
+        var body: some View {
+            Image(systemName: "lock")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
         }
     }
 

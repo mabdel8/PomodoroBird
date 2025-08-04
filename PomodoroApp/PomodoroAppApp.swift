@@ -13,6 +13,7 @@ import ActivityKit
 @main
 struct PomodoroAppApp: App {
     @StateObject private var cloudKitManager = CloudKitManager.shared
+    @StateObject private var appStateManager = AppStateManager()
     
     var sharedModelContainer: ModelContainer {
         return CloudKitManager.shared.modelContainer
@@ -22,6 +23,7 @@ struct PomodoroAppApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(cloudKitManager)
+                .environmentObject(appStateManager)
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     scheduleBackgroundAppRefresh()
                 }
