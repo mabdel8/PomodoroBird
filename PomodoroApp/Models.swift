@@ -9,30 +9,51 @@ import Foundation
 import SwiftData
 
 enum BirdType: String, CaseIterable, Codable {
-    case bluebird = "bluebird"
-    case cardinal = "cardinal" 
-    case dragon = "dragon"
-    case owl = "owl"
-    case peacock = "peacock"
-    case phoenix = "phoenix"
-    case robin = "robin"
-    case sparrow = "sparrow"
+    case scientistbird = "scientistbird"
+    case artistbird = "artistbird"
+    case chefbird = "chefbird"
+    case magicianbird = "magicianbird"
+    case mexicanbird = "MexBird"
+    case businessbird = "businessbird"
+    case detectivebird = "detectivebird"
+    case doctorbird = "doctorbird"
+    case firefighterbird = "firefighterbird"
+    case kingbird = "kingbird"
+    case ninjabird = "ninjabird"
+    case piratebird = "piratebird"
+    case punkbird = "punkbird"
+    case swimmingbird = "swimmingbird"
+    case wizardbird = "wizardbird"
+    case astronautbird = "Astrobird"
+    case farmerbird = "farmerbird"
+    case musicianbird = "musicianbird"
     
     var displayName: String {
         switch self {
-        case .bluebird: return "Blue Bird"
-        case .cardinal: return "Cardinal"
-        case .dragon: return "Dragon"
-        case .owl: return "Owl"
-        case .peacock: return "Peacock"
-        case .phoenix: return "Phoenix"
-        case .robin: return "Robin"
-        case .sparrow: return "Sparrow"
+        case .scientistbird: return "Scientist Bird"
+        case .artistbird: return "Artist Bird"
+        case .chefbird: return "Chef Bird"
+        case .magicianbird: return "Magician Bird"
+        case .mexicanbird: return "Mexican Bird"
+        case .businessbird: return "Business Bird"
+        case .detectivebird: return "Detective Bird"
+        case .doctorbird: return "Doctor Bird"
+        case .firefighterbird: return "Firefighter Bird"
+        case .kingbird: return "King Bird"
+        case .ninjabird: return "Ninja Bird"
+        case .piratebird: return "Pirate Bird"
+        case .punkbird: return "Punk Bird"
+        case .swimmingbird: return "Swimming Bird"
+        case .wizardbird: return "Wizard Bird"
+        case .astronautbird: return "Astronaut Bird"
+        case .farmerbird: return "Farmer Bird"
+        case .musicianbird: return "Musician Bird"
         }
     }
     
     var eggImageName: String {
-        return rawValue + "Egg"
+        // For now, use the generic egg image since bird-specific eggs may not exist yet
+        return "egg"
     }
     
     var birdImageName: String {

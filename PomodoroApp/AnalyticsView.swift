@@ -1288,9 +1288,18 @@ struct BirdCollectionItem: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 48, height: 48)
                 } else {
-                    Image(systemName: "questionmark")
-                        .font(.system(size: 24))
-                        .foregroundColor(.gray)
+                    ZStack {
+                        Image(birdType.birdImageName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 48, height: 48)
+                            .grayscale(1.0)
+                            .opacity(0.3)
+                        
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.gray.opacity(0.6))
+                    }
                 }
             }
             
