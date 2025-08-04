@@ -675,52 +675,12 @@ struct CompletedTaskRowView: View {
                         }
                     }
                     
-                    // Time spent badge
+                    // Time spent badge (only show time, no clock icon)
                     if totalTimeSpent > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock.fill")
-                                .font(.system(size: 10))
-                                .foregroundColor(.black)
-                            
-                            Text(formattedTime)
-                                .font(.custom("Geist", size: 12))
-                                .fontWeight(.medium)
-                                .foregroundColor(.black)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.black.opacity(0.1))
-                        )
-                    }
-                    
-                    // Break time badge
-                    if totalBreakTime > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "cup.and.heat.waves")
-                                .font(.system(size: 10))
-                                .foregroundColor(.black)
-                            
-                            Text(formattedBreakTime)
-                                .font(.custom("Geist", size: 12))
-                                .fontWeight(.medium)
-                                .foregroundColor(.black)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.black.opacity(0.1))
-                        )
-                    }
-                    
-                    // Sessions count
-                    if sessions.count > 0 {
-                        Text("\(sessions.count)×\(task.duration) min")
+                        Text(formattedTime)
                             .font(.custom("Geist", size: 12))
-                            .fontWeight(.light)
-                            .foregroundColor(.black.opacity(0.7))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 2)
                             .background(
@@ -808,6 +768,12 @@ struct NewTaskSheet: View {
         }
     }
     
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -866,7 +832,7 @@ struct NewTaskSheet: View {
                                             .font(.system(size: 16))
                                             .foregroundColor(.black)
                                         
-                                        Text(plannedDate, style: .date)
+                                        Text(formatDate(plannedDate))
                                             .foregroundColor(.black)
                                             .font(.custom("Geist", size: 16))
                                             .fontWeight(.medium)

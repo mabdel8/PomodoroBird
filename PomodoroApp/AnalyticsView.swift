@@ -191,7 +191,150 @@ struct AnalyticsView: View {
         .sorted { $0.minutes > $1.minutes }
     }
     
-    // Bar chart data
+    // Bar chart data with category breakdown
+    private var categoryBreakdownData: [CategoryBreakdownData] {
+        let calendar = Calendar.current
+        var data: [CategoryBreakdownData] = []
+        
+        switch selectedPeriod {
+        case .weekly:
+            // Show daily data for selected week
+            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
+            for i in 0..<7 {
+                let date = calendar.date(byAdding: .day, value: i, to: weekStart) ?? weekStart
+                let formatter = DateFormatter()
+                formatter.dateFormat = "E"
+                let label = formatter.string(from: date)
+                
+                let dayStart = calendar.startOfDay(for: date)
+                let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+                
+                let sessionsForDay = focusSessions.filter { session in
+                    session.isCompleted && 
+                    session.sessionType == "focus" &&
+                    session.createdAt >= dayStart && 
+                    session.createdAt < dayEnd
+                }
+                
+                // Group sessions by category
+                let categoryGroups = Dictionary(grouping: sessionsForDay) { session in
+                    session.tagName ?? "No Category"
+                }
+                
+                let categoryBreakdown = categoryGroups.map { categoryName, sessions in
+                    let totalMinutes = sessions.reduce(0) { $0 + ($1.actualDuration / 60) }
+                    let categoryColor = sessions.first?.tagColor ?? "blue"
+                    return CategoryData(
+                        categoryName: categoryName,
+                        categoryColor: categoryColor,
+                        minutes: totalMinutes
+                    )
+                }.sorted { $0.minutes > $1.minutes }
+                
+                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(CategoryBreakdownData(
+                    date: date,
+                    label: label,
+                    categoryBreakdown: categoryBreakdown,
+                    totalMinutes: totalMinutes
+                ))
+            }
+            
+        case .monthly:
+            // Show weekly data for selected month
+            let monthStart = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
+            let monthEnd = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
+            
+            var weekStart = calendar.dateInterval(of: .weekOfYear, for: monthStart)?.start ?? monthStart
+            var weekNumber = 1
+            
+            while weekStart < monthEnd && weekNumber <= 5 {
+                let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+                
+                let sessionsForWeek = focusSessions.filter { session in
+                    session.isCompleted && 
+                    session.sessionType == "focus" &&
+                    session.createdAt >= weekStart && 
+                    session.createdAt < weekEnd
+                }
+                
+                // Group sessions by category
+                let categoryGroups = Dictionary(grouping: sessionsForWeek) { session in
+                    session.tagName ?? "No Category"
+                }
+                
+                let categoryBreakdown = categoryGroups.map { categoryName, sessions in
+                    let totalMinutes = sessions.reduce(0) { $0 + ($1.actualDuration / 60) }
+                    let categoryColor = sessions.first?.tagColor ?? "blue"
+                    return CategoryData(
+                        categoryName: categoryName,
+                        categoryColor: categoryColor,
+                        minutes: totalMinutes
+                    )
+                }.sorted { $0.minutes > $1.minutes }
+                
+                let totalMinutes = sessionsForWeek.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(CategoryBreakdownData(
+                    date: weekStart,
+                    label: "W\(weekNumber)",
+                    categoryBreakdown: categoryBreakdown,
+                    totalMinutes: totalMinutes
+                ))
+                
+                weekStart = weekEnd
+                weekNumber += 1
+            }
+            
+        case .yearly:
+            // Show monthly data for selected year
+            let yearStart = calendar.dateInterval(of: .year, for: currentDate)?.start ?? currentDate
+            for i in 0..<12 {
+                let monthStart = calendar.date(byAdding: .month, value: i, to: yearStart) ?? yearStart
+                let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
+                
+                let formatter = DateFormatter()
+                formatter.dateFormat = "MMM"
+                let label = formatter.string(from: monthStart)
+                
+                let sessionsForMonth = focusSessions.filter { session in
+                    session.isCompleted && 
+                    session.sessionType == "focus" &&
+                    session.createdAt >= monthStart && 
+                    session.createdAt < monthEnd
+                }
+                
+                // Group sessions by category
+                let categoryGroups = Dictionary(grouping: sessionsForMonth) { session in
+                    session.tagName ?? "No Category"
+                }
+                
+                let categoryBreakdown = categoryGroups.map { categoryName, sessions in
+                    let totalMinutes = sessions.reduce(0) { $0 + ($1.actualDuration / 60) }
+                    let categoryColor = sessions.first?.tagColor ?? "blue"
+                    return CategoryData(
+                        categoryName: categoryName,
+                        categoryColor: categoryColor,
+                        minutes: totalMinutes
+                    )
+                }.sorted { $0.minutes > $1.minutes }
+                
+                let totalMinutes = sessionsForMonth.reduce(0) { $0 + ($1.actualDuration / 60) }
+                
+                data.append(CategoryBreakdownData(
+                    date: monthStart,
+                    label: label,
+                    categoryBreakdown: categoryBreakdown,
+                    totalMinutes: totalMinutes
+                ))
+            }
+        }
+        
+        return data
+    }
+    
+    // Bar chart data (keeping for backward compatibility)
     private var barChartData: [DailyStatsData] {
         let calendar = Calendar.current
         var data: [DailyStatsData] = []
@@ -348,7 +491,7 @@ struct AnalyticsView: View {
             SessionHistoryView(focusSessions: focusSessions)
         }
         .sheet(isPresented: $showingChartDetails) {
-            ChartDetailsView(barChartData: barChartData, selectedPeriod: selectedPeriod)
+            ChartDetailsView(categoryBreakdownData: categoryBreakdownData, selectedPeriod: selectedPeriod)
         }
     }
     
@@ -911,13 +1054,29 @@ struct AnalyticsView: View {
     }
     
     private var dailyFocusChart: some View {
-        Chart(barChartData, id: \.date) { data in
-            BarMark(
-                x: .value("Period", data.label),
-                y: .value("Minutes", data.focusMinutes)
+        Chart(categoryBreakdownData, id: \.date) { periodData in
+            // Area mark for gradient fill with smooth curves
+            AreaMark(
+                x: .value("Period", periodData.label),
+                y: .value("Minutes", periodData.totalMinutes)
             )
-            .foregroundStyle(.black.opacity(0.8))
-            .cornerRadius(4)
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.4), Color.blue.opacity(0.05)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .interpolationMethod(.catmullRom)
+            
+            // Line mark for the actual line with smooth curves
+            LineMark(
+                x: .value("Period", periodData.label),
+                y: .value("Minutes", periodData.totalMinutes)
+            )
+            .foregroundStyle(Color.blue)
+            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            .interpolationMethod(.catmullRom)
         }
         .chartXAxis {
             AxisMarks { _ in
@@ -934,10 +1093,6 @@ struct AnalyticsView: View {
             }
         }
         .frame(height: 200)
-        .onTapGesture {
-            // Handle tap to show details
-            showChartDetails()
-        }
     }
     
     private var monthLabelsForYearly: some View {
@@ -1184,6 +1339,19 @@ struct DailyStatsData {
     let sessionCount: Int
 }
 
+struct CategoryBreakdownData {
+    let date: Date
+    let label: String
+    let categoryBreakdown: [CategoryData]
+    let totalMinutes: Int
+}
+
+struct CategoryData {
+    let categoryName: String
+    let categoryColor: String
+    let minutes: Int
+}
+
 struct SessionHistoryView: View {
     let focusSessions: [FocusSession]
     @Environment(\.dismiss) private var dismiss
@@ -1196,13 +1364,32 @@ struct SessionHistoryView: View {
             .map { $0 }
     }
     
+    private var groupedSessions: [(String, [FocusSession])] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: recentSessions) { session in
+            calendar.startOfDay(for: session.createdAt)
+        }
+        
+        return grouped.sorted { $0.key > $1.key }.map { date, sessions in
+            let formatter = DateFormatter()
+            formatter.dateStyle = .full
+            let dateString = formatter.string(from: date)
+            return (dateString, sessions.sorted { $0.createdAt > $1.createdAt })
+        }
+    }
+    
     var body: some View {
         NavigationView {
-            List {
-                ForEach(recentSessions, id: \.id) { session in
-                    SessionRowView(session: session)
+            ScrollView {
+                LazyVStack(spacing: 24) {
+                    ForEach(groupedSessions, id: \.0) { dateString, sessions in
+                        dayContainer(dateString: dateString, sessions: sessions)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
+            .background(Color.white)
             .navigationTitle("Session History")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -1214,6 +1401,47 @@ struct SessionHistoryView: View {
                     .fontWeight(.medium)
                 }
             }
+        }
+        .background(Color.white)
+        .preferredColorScheme(.light)
+    }
+    
+    private func dayContainer(dateString: String, sessions: [FocusSession]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Date header above container
+            Text(dateString)
+                .font(.custom("Geist", size: 18))
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+                .padding(.horizontal, 16)
+            
+            // Container with tasks
+            VStack(spacing: 0) {
+                ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
+                    VStack(spacing: 0) {
+                        SessionRowView(session: session)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        
+                        // Divider line (except for last item)
+                        if index < sessions.count - 1 {
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.1))
+                                .frame(height: 1)
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                    )
+            )
         }
     }
 }
@@ -1228,44 +1456,55 @@ struct SessionRowView: View {
         return formatter
     }
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.taskTitle ?? "Focus Session")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    if let tagName = session.tagName, let tagColor = session.tagColor {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(colorFromString(tagColor))
-                                .frame(width: 8, height: 8)
-                            
-                            Text(tagName)
-                                .font(.custom("Geist", size: 12))
-                                .fontWeight(.light)
-                                .foregroundColor(.secondary)
-                        }
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }
+    
+        var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.taskTitle ?? "Focus Session")
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+
+                if let tagName = session.tagName, let tagColor = session.tagColor {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(colorFromString(tagColor))
+                            .frame(width: 8, height: 8)
+
+                        Text(tagName)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.light)
+                            .foregroundColor(.secondary)
                     }
                 }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(session.actualDuration / 60) min")
-                        .font(.custom("Geist", size: 14))
-                        .fontWeight(.medium)
-                        .foregroundColor(.blue)
-                    
-                    Text(dateFormatter.string(from: session.createdAt))
-                        .font(.custom("Geist", size: 11))
-                        .foregroundColor(.secondary)
-                }
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                // Duration as pill
+                Text("\(session.actualDuration / 60) min")
+                    .font(.custom("Geist", size: 12))
+                    .fontWeight(.medium)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color.black.opacity(0.1))
+                    )
+
+                // Time only (no date)
+                Text(timeFormatter.string(from: session.createdAt))
+                    .font(.custom("Geist", size: 11))
+                    .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 4)
     }
     
     private func colorFromString(_ colorString: String) -> Color {
@@ -1281,51 +1520,56 @@ struct SessionRowView: View {
 }
 
 struct ChartDetailsView: View {
-    let barChartData: [DailyStatsData]
+    let categoryBreakdownData: [CategoryBreakdownData]
     let selectedPeriod: TimePeriod
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationView {
             List {
-                ForEach(barChartData, id: \.date) { data in
-                    VStack(alignment: .leading, spacing: 8) {
+                ForEach(categoryBreakdownData, id: \.date) { periodData in
+                    VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text(data.label)
+                            Text(periodData.label)
                                 .font(.custom("Geist", size: 16))
                                 .fontWeight(.medium)
                                 .foregroundColor(.primary)
                             
                             Spacer()
                             
-                            Text("\(data.focusMinutes) min")
+                            Text("\(periodData.totalMinutes) min")
                                 .font(.custom("Geist", size: 16))
                                 .fontWeight(.bold)
                                 .foregroundColor(.black)
                         }
                         
-                        HStack(spacing: 16) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "clock.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.gray)
-                                
-                                Text("\(data.sessionCount) sessions")
-                                    .font(.custom("Geist", size: 12))
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            if data.sessionCount > 0 {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "chart.bar.fill")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.gray)
-                                    
-                                    Text("\(data.focusMinutes / max(data.sessionCount, 1)) min avg")
-                                        .font(.custom("Geist", size: 12))
-                                        .foregroundColor(.secondary)
+                        if !periodData.categoryBreakdown.isEmpty {
+                            VStack(spacing: 8) {
+                                ForEach(periodData.categoryBreakdown, id: \.categoryName) { category in
+                                    HStack {
+                                        Circle()
+                                            .fill(colorFromString(category.categoryColor))
+                                            .frame(width: 8, height: 8)
+                                        
+                                        Text(category.categoryName)
+                                            .font(.custom("Geist", size: 14))
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        Text("\(category.minutes) min")
+                                            .font(.custom("Geist", size: 14))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
                             }
+                            .padding(.leading, 8)
+                        } else {
+                            Text("No focus sessions")
+                                .font(.custom("Geist", size: 14))
+                                .foregroundColor(.secondary)
+                                .italic()
                         }
                     }
                     .padding(.vertical, 4)
@@ -1342,6 +1586,17 @@ struct ChartDetailsView: View {
                     .fontWeight(.medium)
                 }
             }
+        }
+    }
+    
+    private func colorFromString(_ colorString: String) -> Color {
+        switch colorString {
+        case "blue": return .blue
+        case "green": return .green
+        case "purple": return .purple
+        case "orange": return .orange
+        case "red": return .red
+        default: return .blue
         }
     }
 }
