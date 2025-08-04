@@ -63,12 +63,7 @@ struct ContentView: View {
                 }
                 .tag(3)
             
-            SettingsView()
-                .tabItem {
-                    Image(selectedTab == 4 ? "cogfilled" : "cog")
-                    Text("Settings")
-                }
-                .tag(4)
+
         }
         .accentColor(.black)
         .onAppear {
