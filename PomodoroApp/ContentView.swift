@@ -11,16 +11,35 @@ import Foundation
 
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \FocusTag.name) private var tags: [FocusTag]
+    @Query(filter: #Predicate<Task> { !$0.isCompleted }, sort: \Task.createdAt, order: .reverse) private var availableTasks: [Task]
+    @Query private var timerStates: [AppTimerState]
+    @Query(sort: \FocusSession.createdAt, order: .reverse) private var recentSessions: [FocusSession]
+    @Query(sort: \CollectedBird.collectedAt, order: .reverse) private var collectedBirds: [CollectedBird]
+    
     @State private var selectedTab = 0
+    @State private var stateManager: TimerStateManager?
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            TimerView(selectedTab: $selectedTab)
-                .tabItem {
-                    Image(selectedTab == 0 ? "timerfilled" : "timer")
-                    Text("Timer")
+            Group {
+                if let stateManager = stateManager {
+                    TimerView(selectedTab: $selectedTab, stateManager: stateManager)
+                } else {
+                    VStack {
+                        ProgressView()
+                        Text("Loading...")
+                            .font(.custom("Geist", size: 16))
+                            .foregroundColor(.secondary)
+                    }
                 }
-                .tag(0)
+            }
+            .tabItem {
+                Image(selectedTab == 0 ? "timerfilled" : "timer")
+                Text("Timer")
+            }
+            .tag(0)
             
             TaskManagerView()
                 .tabItem {
@@ -52,6 +71,26 @@ struct ContentView: View {
                 .tag(4)
         }
         .accentColor(.black)
+        .onAppear {
+            initializeStateManager()
+        }
+    }
+    
+    private func initializeStateManager() {
+        guard stateManager == nil else { return }
+        
+        let manager = TimerStateManager(modelContext: modelContext)
+        manager.updateData(
+            tags: tags,
+            availableTasks: availableTasks,
+            timerStates: timerStates,
+            recentSessions: recentSessions,
+            collectedBirds: collectedBirds
+        )
+        manager.setupInitialData()
+        manager.calculateWorkTimeToday()
+        
+        stateManager = manager
     }
 }
 
@@ -63,7 +102,7 @@ struct ContentView: View {
 }
 
 #Preview("TimerView") {
-    TimerView(selectedTab: .constant(0))
+    ContentView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
 }
 

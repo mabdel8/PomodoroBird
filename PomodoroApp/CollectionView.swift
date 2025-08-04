@@ -26,7 +26,6 @@ struct CollectionView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 8)
             }
-            .navigationTitle("Collection")
             .navigationBarTitleDisplayMode(.large)
             .background(Color(UIColor.systemBackground))
         }
@@ -55,7 +54,7 @@ struct CollectionView: View {
                     .animation(.easeInOut(duration: 1.0), value: collectionProgress)
                 
                 VStack(spacing: 4) {
-                    Text("\(collectedBirds.count)")
+                    Text("\(Set(collectedBirds.compactMap { $0.birdType }).count)")
                         .font(.custom("Geist", size: 32))
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
@@ -78,7 +77,8 @@ struct CollectionView: View {
     
     private var collectionProgress: Double {
         guard !BirdType.allCases.isEmpty else { return 0 }
-        return Double(collectedBirds.count) / Double(BirdType.allCases.count)
+        let uniqueBirdTypes = Set(collectedBirds.compactMap { $0.birdType })
+        return Double(uniqueBirdTypes.count) / Double(BirdType.allCases.count)
     }
     
     private var birdGrid: some View {

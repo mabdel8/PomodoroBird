@@ -17,42 +17,24 @@ struct TimerView: View {
     @Query(sort: \CollectedBird.collectedAt, order: .reverse) private var collectedBirds: [CollectedBird]
     @Binding var selectedTab: Int
     
-    @State private var stateManager: TimerStateManager?
+    let stateManager: TimerStateManager
     
     var body: some View {
-        Group {
-            if let stateManager = stateManager {
-                contentWithSheets(stateManager: stateManager)
-            } else {
-                // Loading state
-                VStack {
-                    ProgressView()
-                    Text("Loading...")
-                        .font(.custom("Geist", size: 16))
-                        .foregroundColor(.secondary)
-                }
+        contentWithSheets(stateManager: stateManager)
+            .onAppear {
+                updateStateManagerData()
             }
-        }
-        .onAppear {
-            initializeStateManager()
-        }
     }
     
-    private func initializeStateManager() {
-        guard stateManager == nil else { return }
-        
-        let manager = TimerStateManager(modelContext: modelContext)
-        manager.updateData(
+    private func updateStateManagerData() {
+        stateManager.updateData(
             tags: tags,
             availableTasks: availableTasks,
             timerStates: timerStates,
             recentSessions: recentSessions,
             collectedBirds: collectedBirds
         )
-        manager.setupInitialData()
-        manager.calculateWorkTimeToday()
-        
-        stateManager = manager
+        stateManager.calculateWorkTimeToday()
     }
     
     private func mainContent(stateManager: TimerStateManager) -> some View {
