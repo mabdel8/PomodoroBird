@@ -48,18 +48,18 @@ struct ContentView: View {
                 }
                 .tag(1)
             
-            AnalyticsView()
+            CollectionView()
                 .tabItem {
-                    Image(selectedTab == 2 ? "chartsfilled" : "charts")
-                    Text("Analytics")
+                    Image(selectedTab == 2 ? "collectionsfilled" : "collections")
+                        .font(.system(size: 18))
+                    Text("Collection")
                 }
                 .tag(2)
             
-            CollectionView()
+            AnalyticsView()
                 .tabItem {
-                    Image(selectedTab == 3 ? "collectionsfilled" : "collections")
-                        .font(.system(size: 18))
-                    Text("Collection")
+                    Image(selectedTab == 3 ? "chartsfilled" : "charts")
+                    Text("Analytics")
                 }
                 .tag(3)
             

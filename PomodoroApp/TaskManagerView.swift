@@ -768,6 +768,12 @@ struct NewTaskSheet: View {
         }
     }
     
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -826,7 +832,7 @@ struct NewTaskSheet: View {
                                             .font(.system(size: 16))
                                             .foregroundColor(.black)
                                         
-                                        Text(plannedDate, style: .date)
+                                        Text(formatDate(plannedDate))
                                             .foregroundColor(.black)
                                             .font(.custom("Geist", size: 16))
                                             .fontWeight(.medium)
