@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2F32C35C2E407F5D00E70932 /* pomodorostorekit.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 2F32C35B2E407F5D00E70932 /* pomodorostorekit.storekit */; };
 		2FBA64962E35DAE500682163 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FBA64952E35DAE500682163 /* WidgetKit.framework */; };
 		2FBA64982E35DAE500682163 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FBA64972E35DAE500682163 /* SwiftUI.framework */; };
 		2FBA64A92E35DAE700682163 /* PomodoroLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2FBA64932E35DAE400682163 /* PomodoroLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -51,6 +52,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2F32C35B2E407F5D00E70932 /* pomodorostorekit.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = pomodorostorekit.storekit; sourceTree = "<group>"; };
 		2FBA63C22E31D47500682163 /* PomodoroApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PomodoroApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FBA63D42E31D47600682163 /* PomodoroAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomodoroAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FBA63DE2E31D47600682163 /* PomodoroAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomodoroAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -142,6 +144,7 @@
 		2FBA63B92E31D47500682163 = {
 			isa = PBXGroup;
 			children = (
+				2F32C35B2E407F5D00E70932 /* pomodorostorekit.storekit */,
 				2FBA63C42E31D47500682163 /* PomodoroApp */,
 				2FBA63D72E31D47600682163 /* PomodoroAppTests */,
 				2FBA63E12E31D47600682163 /* PomodoroAppUITests */,
@@ -319,6 +322,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2F32C35C2E407F5D00E70932 /* pomodorostorekit.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

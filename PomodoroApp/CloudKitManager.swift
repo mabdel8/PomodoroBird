@@ -19,10 +19,8 @@ class CloudKitManager: ObservableObject {
     private let container = CKContainer.default()
     
     private init() {
-        print("🚀 CloudKitManager initializing...")
         loadSettings()
         checkCloudKitAvailability()
-        print("✅ CloudKitManager initialized - CloudKit enabled: \(isCloudKitEnabled)")
     }
     
     // MARK: - CloudKit Availability
@@ -45,52 +43,17 @@ class CloudKitManager: ObservableObject {
     // MARK: - Settings Management
     
     private func loadSettings() {
-        // CRITICAL: Default to false - user must explicitly enable CloudKit
-        // UserDefaults.bool returns false if key doesn't exist, which is what we want
-        let userSetting = UserDefaults.standard.object(forKey: "isCloudKitEnabled")
-        
-        if userSetting == nil {
-            // Key doesn't exist - this is a fresh install or first launch
-            isCloudKitEnabled = false
-            print("🔒 Fresh install - CloudKit disabled by default")
-            // Explicitly save the false value
-            UserDefaults.standard.set(false, forKey: "isCloudKitEnabled")
-        } else {
-            // Key exists - use stored value
-            isCloudKitEnabled = UserDefaults.standard.bool(forKey: "isCloudKitEnabled")
-            print("📱 CloudKit setting from storage: \(isCloudKitEnabled)")
-        }
-        
-        print("🎯 FINAL CloudKit state: \(isCloudKitEnabled)")
+        isCloudKitEnabled = UserDefaults.standard.bool(forKey: "isCloudKitEnabled")
     }
     
     func saveSettings() {
         UserDefaults.standard.set(isCloudKitEnabled, forKey: "isCloudKitEnabled")
-        UserDefaults.standard.synchronize() // Force immediate save
-        print("💾 CloudKit settings saved: enabled = \(isCloudKitEnabled)")
-        print("🔍 Verification - stored value: \(UserDefaults.standard.bool(forKey: "isCloudKitEnabled"))")
+        print("☁️ CloudKit settings saved: enabled = \(isCloudKitEnabled)")
     }
     
     func toggleCloudKit() {
-        let oldValue = isCloudKitEnabled
         isCloudKitEnabled.toggle()
-        
-        print("🔀 User toggled CloudKit: \(oldValue) → \(isCloudKitEnabled)")
-        
         saveSettings()
-        
-        // Clear cached container to force recreation with new settings
-        _modelContainer = nil
-        print("🔄 Container cache cleared - restart required for changes to take effect")
-    }
-    
-    func forceDisableCloudKit() {
-        if isCloudKitEnabled {
-            print("🚨 FORCING CloudKit disable - was incorrectly enabled")
-            isCloudKitEnabled = false
-            saveSettings()
-            _modelContainer = nil
-        }
     }
     
     // MARK: - ModelContainer Creation
@@ -108,6 +71,7 @@ class CloudKitManager: ObservableObject {
     }
     
     private func createModelContainer() -> ModelContainer {
+        
         let schema = Schema([
             FocusTag.self,
             Task.self,
@@ -116,21 +80,9 @@ class CloudKitManager: ObservableObject {
             CollectedBird.self,
         ])
         
-        // CRITICAL PRIVACY CHECK: Never allow CloudKit without explicit user consent
-        print("🔒 PRIVACY CHECK - CloudKit enabled: \(isCloudKitEnabled), Available: \(isCloudKitAvailable)")
-        
-        // Force disable CloudKit - NEVER automatically enable
-        // This is a known SwiftData bug where it auto-enables CloudKit
-        forceDisableCloudKit()
-        
-        // Always use local storage to protect user privacy
-        print("📱 PRIVACY MODE: Creating local-only ModelContainer (CloudKit disabled)")
-        return createLocalContainer(schema: schema)
-        
-        /* CloudKit completely disabled for privacy
         if isCloudKitEnabled && isCloudKitAvailable {
-            print("☁️ User enabled CloudKit - Creating CloudKit ModelContainer...")
-            
+            print("☁️ Creating CloudKit ModelContainer...")
+            // CloudKit configuration
             let cloudKitConfiguration = ModelConfiguration(
                 schema: schema,
                 isStoredInMemoryOnly: false,
@@ -144,24 +96,18 @@ class CloudKitManager: ObservableObject {
             } catch {
                 print("❌ Failed to create CloudKit ModelContainer: \(error)")
                 print("❌ CloudKit error details: \(error.localizedDescription)")
-                print("🔄 Falling back to local storage...")
                 // Fallback to local storage
                 return createLocalContainer(schema: schema)
             }
         } else {
-            // Local storage only (default behavior)
-            if !isCloudKitEnabled {
-                print("📱 CloudKit disabled by user - Creating local ModelContainer...")
-            } else {
-                print("📱 CloudKit not available - Creating local ModelContainer...")
-            }
+            // Local storage only
+            print("📱 Creating local ModelContainer...")
             return createLocalContainer(schema: schema)
         }
-        */
     }
     
     private func createLocalContainer(schema: Schema) -> ModelContainer {
-        // Create completely local-only configuration - NO iCloud interaction
+        // Try local storage first
         let localConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false
