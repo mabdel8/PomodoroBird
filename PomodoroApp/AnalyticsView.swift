@@ -896,68 +896,11 @@ struct AnalyticsView: View {
         .padding(.horizontal, 24)
     }
     
-    private var birdCollectionContainer: some View {
+        private var birdCollectionContainer: some View {
         VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                HStack(spacing: 12) {
-                    Image(systemName: "bird.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.primary)
-                    
-                    Text("Bird Collection")
-                        .font(.custom("Geist", size: 20))
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                }
-                
-                Spacer()
-                
-                Text("\(collectedBirds.count) / \(BirdType.allCases.count)")
-                    .font(.custom("Geist", size: 16))
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Bird grid
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 16) {
-                ForEach(BirdType.allCases, id: \.self) { birdType in
-                    let isCollected = collectedBirds.contains { $0.birdType == birdType }
-                    BirdCollectionItem(birdType: birdType, isCollected: isCollected)
-                }
-            }
-            
-            // Recent bird (if any)
-            if let recentBird = collectedBirds.first {
-                HStack(spacing: 12) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14))
-                        .foregroundColor(.yellow)
-                    
-                    Text("Latest:")
-                        .font(.custom("Geist", size: 14))
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                    
-                    if let birdType = recentBird.birdType {
-                        Image(birdType.birdImageName)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                        
-                        Text(birdType.displayName)
-                            .font(.custom("Geist", size: 14))
-                            .fontWeight(.medium)
-                            .foregroundColor(.primary)
-                    }
-                    
-                    Spacer()
-                    
-                    Text(timeAgo(from: recentBird.collectedAt))
-                        .font(.custom("Geist", size: 12))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 8)
-            }
+            collectionHeader
+            collectionProgressSection
+            collectionStatsSection
         }
         .padding(20)
         .background(Color(.systemBackground))
@@ -970,6 +913,193 @@ struct AnalyticsView: View {
                 .stroke(Color.gray.opacity(0.1), lineWidth: 1)
         )
         .padding(.horizontal, 24)
+    }
+    
+    private var collectionHeader: some View {
+        HStack {
+            HStack(spacing: 12) {
+                Image(systemName: "bird.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.primary)
+                
+                Text("Collection Progress")
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+            }
+            
+            Spacer()
+            
+            Button(action: {
+                NotificationCenter.default.post(name: .openCollectionTab, object: nil)
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .medium))
+                    
+                    Text("View All")
+                        .font(.custom("Geist", size: 14))
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(.blue)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.blue.opacity(0.1))
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+    
+    private var collectionProgressSection: some View {
+        HStack(spacing: 32) {
+            // Left side: Progress ring with better styling
+            VStack(spacing: 12) {
+                progressRing
+            }
+            .frame(maxWidth: .infinity)
+            
+            // Right side: Latest bird with improved layout
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .center, spacing: 12) {
+                    if let recentBird = collectedBirds.first, let birdType = recentBird.birdType {
+                        // First: Bird image
+                        Image(birdType.birdImageName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 100, height: 100)
+                        
+                        // Second: Bird name
+                        Text(birdType.displayName)
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        
+                        // Third: Date
+                        Text("Unlocked \(formatDate(recentBird.collectedAt))")
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    } else {
+                        // First: Bird image
+                        Image(systemName: "bird.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(.blue.opacity(0.6))
+                        
+                        // Second: Bird name
+                        Text("No birds yet")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        
+                        // Third: Date
+                        Text("Start focusing to collect")
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.vertical, 8)
+    }
+    
+    private var progressRing: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                // Background circle with subtle shadow
+                Circle()
+                    .stroke(Color.gray.opacity(0.15), lineWidth: 10)
+                    .frame(width: 100, height: 100)
+                
+                // Progress arc with gradient
+                Circle()
+                    .trim(from: 0, to: collectionProgress)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.blue, Color.blue.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                    )
+                    .frame(width: 100, height: 100)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeInOut(duration: 1.0), value: collectionProgress)
+                
+                // Center content
+                VStack(spacing: 2) {
+                    Text("\(Int(collectionProgress * 100))%")
+                        .font(.custom("Geist", size: 20))
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("Complete")
+                        .font(.custom("Geist", size: 10))
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .textCase(.uppercase)
+                        .tracking(0.3)
+                }
+            }
+            
+            Text("Collection Progress")
+                .font(.custom("Geist", size: 12))
+                .fontWeight(.medium)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+    
+
+    
+    private var collectionStatsSection: some View {
+        HStack(spacing: 32) {
+            statItem(icon: "bird", value: "\(collectedBirds.count)", label: "Birds Collected", iconColor: .primary)
+            
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 1, height: 40)
+            
+            statItem(icon: "calendar", value: "\(daysSinceFirstCollection)", label: "Active Days", iconColor: .blue)
+            
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 1, height: 40)
+            
+            statItem(icon: "target", value: "\(Int(collectionProgress * 100))%", label: "Completion", iconColor: .primary)
+        }
+    }
+    
+    private func statItem(icon: String, value: String, label: String, iconColor: Color) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(iconColor)
+            
+            VStack(spacing: 4) {
+                Text(value)
+                    .font(.custom("Geist", size: 18))
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                
+                Text(label)
+                    .font(.custom("Geist", size: 12))
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+        }
     }
     
     private var timeDistributionChart: some View {
@@ -1268,6 +1398,64 @@ struct AnalyticsView: View {
         } else {
             return "now"
         }
+    }
+    
+    // MARK: - Bird Collection Analytics
+    
+    private var uniqueBirdsCollected: Int {
+        Set(collectedBirds.compactMap { $0.birdType }).count
+    }
+    
+    private var collectionProgress: Double {
+        guard !BirdType.allCases.isEmpty else { return 0 }
+        return Double(uniqueBirdsCollected) / Double(BirdType.allCases.count)
+    }
+    
+    private var collectionRate: String {
+        guard !collectedBirds.isEmpty else { return "0" }
+        
+        let calendar = Calendar.current
+        let now = Date()
+        
+        let startDate: Date
+        switch selectedPeriod {
+        case .weekly:
+            startDate = calendar.date(byAdding: .day, value: -7, to: now) ?? now
+        case .monthly:
+            startDate = calendar.date(byAdding: .month, value: -1, to: now) ?? now
+        case .yearly:
+            startDate = calendar.date(byAdding: .year, value: -1, to: now) ?? now
+        }
+        
+        let recentBirds = collectedBirds.filter { $0.collectedAt >= startDate }
+        let uniqueRecentBirds = Set(recentBirds.compactMap { $0.birdType }).count
+        
+        return "\(uniqueRecentBirds)"
+    }
+    
+    private var daysSinceFirstCollection: Int {
+        guard let firstBird = collectedBirds.last else { return 0 }
+        
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.day], from: firstBird.collectedAt, to: Date())
+        return components.day ?? 0
+    }
+    
+    private var periodLabel: String {
+        switch selectedPeriod {
+        case .weekly:
+            return "This Week"
+        case .monthly:
+            return "This Month"
+        case .yearly:
+            return "This Year"
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
     }
 }
 
@@ -1604,4 +1792,10 @@ struct ChartDetailsView: View {
 #Preview {
     AnalyticsView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
+}
+
+// MARK: - Notification Extensions
+
+extension Notification.Name {
+    static let openCollectionTab = Notification.Name("openCollectionTab")
 } 
