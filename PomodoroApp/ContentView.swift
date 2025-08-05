@@ -69,6 +69,9 @@ struct ContentView: View {
         .onAppear {
             initializeStateManager()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openCollectionTab)) { _ in
+            selectedTab = 2 // Switch to Collection tab
+        }
     }
     
     private func initializeStateManager() {
