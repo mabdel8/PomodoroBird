@@ -25,6 +25,7 @@ struct TimerSettingsView: View {
     @State private var dailySummaryNotifications = true
     @State private var showingResetAlert = false
     @State private var showingClearSessionsAlert = false
+    @State private var showingClearAllDataAlert = false
     @State private var showingExportSheet = false
     @State private var isBackingUpToCloud = false
     @State private var backupStatus = ""
@@ -114,6 +115,14 @@ struct TimerSettingsView: View {
                 }
             } message: {
                 Text("This will permanently delete all your focus session data. This action cannot be undone.")
+            }
+            .alert("Clear All Data", isPresented: $showingClearAllDataAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Clear All", role: .destructive) {
+                    clearAllData()
+                }
+            } message: {
+                Text("This will completely reset the app: all sessions, tasks, settings, onboarding state, and subscription status. Perfect for testing. This action cannot be undone.")
             }
             .onAppear {
                 notificationManager.checkNotificationPermission()
@@ -274,6 +283,15 @@ struct TimerSettingsView: View {
                 subtitle: "Delete all focus data",
                 icon: "trash",
                 action: { showingClearSessionsAlert = true },
+                isDestructive: true
+            )
+            Divider()
+                .padding(.leading, 56)
+            settingsRow(
+                title: "Clear All Data",
+                subtitle: "Reset app completely for testing",
+                icon: "trash.fill",
+                action: { showingClearAllDataAlert = true },
                 isDestructive: true
             )
         }
@@ -717,6 +735,84 @@ struct TimerSettingsView: View {
         } catch {
             print("Error clearing sessions: \(error)")
         }
+    }
+    
+    private func clearAllData() {
+        // 1. Reset all settings to defaults
+        resetAppToDefaults()
+        
+        // 2. Clear all SwiftData entities
+        clearAllSessions()
+        
+        // 3. Clear all other SwiftData entities (tasks, tags, birds, timer states)
+        clearAllSwiftDataEntities()
+        
+        // 4. Clear UserDefaults (onboarding state, etc.)
+        clearUserDefaults()
+        
+        // 5. Reset CloudKit settings
+        cloudKitManager.isCloudKitEnabled = false
+        cloudKitManager.saveSettings()
+    }
+    
+    private func clearAllSwiftDataEntities() {
+        // Clear all other entities from SwiftData
+        let descriptor = FetchDescriptor<Task>()
+        do {
+            let tasks = try modelContext.fetch(descriptor)
+            for task in tasks {
+                modelContext.delete(task)
+            }
+        } catch {
+            print("Error clearing tasks: \(error)")
+        }
+        
+        let tagDescriptor = FetchDescriptor<FocusTag>()
+        do {
+            let tags = try modelContext.fetch(tagDescriptor)
+            for tag in tags {
+                modelContext.delete(tag)
+            }
+        } catch {
+            print("Error clearing tags: \(error)")
+        }
+        
+        let birdDescriptor = FetchDescriptor<CollectedBird>()
+        do {
+            let birds = try modelContext.fetch(birdDescriptor)
+            for bird in birds {
+                modelContext.delete(bird)
+            }
+        } catch {
+            print("Error clearing birds: \(error)")
+        }
+        
+        let timerStateDescriptor = FetchDescriptor<AppTimerState>()
+        do {
+            let timerStates = try modelContext.fetch(timerStateDescriptor)
+            for timerState in timerStates {
+                modelContext.delete(timerState)
+            }
+        } catch {
+            print("Error clearing timer states: \(error)")
+        }
+        
+        // Save all deletions
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving context after clearing all data: \(error)")
+        }
+    }
+    
+    private func clearUserDefaults() {
+        // Clear onboarding state
+        UserDefaults.standard.removeObject(forKey: "OnboardingSeen")
+        
+        // Clear any other stored preferences
+        let domain = Bundle.main.bundleIdentifier!
+        UserDefaults.standard.removePersistentDomain(forName: domain)
+        UserDefaults.standard.synchronize()
     }
 }
 

@@ -13,8 +13,11 @@ class AppStateManager: ObservableObject {
     @Published var showOnboarding = false
     @Published var showPaywall = false
     @Published var isSubscribed = false
+    @Published var navigateToAnalytics = false
     
     private let purchaseModel = PurchaseModel()
+    private var wasSubscribed = false
+    private var cancellables = Set<AnyCancellable>()
     
     init() {
         checkAppState()
@@ -34,7 +37,20 @@ class AppStateManager: ObservableObject {
         // Monitor subscription status changes
         purchaseModel.$isSubscribed
             .receive(on: DispatchQueue.main)
-            .assign(to: &$isSubscribed)
+            .sink { [weak self] newSubscriptionStatus in
+                guard let self = self else { return }
+                
+                // Check if this is a new subscription (wasn't subscribed before, now is)
+                if !self.wasSubscribed && newSubscriptionStatus {
+                    // Purchase was successful - dismiss paywall and navigate to analytics
+                    self.showPaywall = false
+                    self.navigateToAnalytics = true
+                }
+                
+                self.isSubscribed = newSubscriptionStatus
+                self.wasSubscribed = newSubscriptionStatus
+            }
+            .store(in: &cancellables)
     }
     
     private func checkSubscriptionAndShowPaywall() {
@@ -68,6 +84,10 @@ class AppStateManager: ObservableObject {
     
     func presentPaywall() {
         showPaywall = true
+    }
+    
+    func analyticsNavigationHandled() {
+        navigateToAnalytics = false
     }
     
     var purchaseManager: PurchaseModel {

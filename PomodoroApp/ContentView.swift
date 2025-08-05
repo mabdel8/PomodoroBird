@@ -77,6 +77,12 @@ struct ContentView: View {
         .onAppear {
             initializeStateManager()
         }
+        .onChange(of: appStateManager.navigateToAnalytics) { shouldNavigate in
+            if shouldNavigate {
+                selectedTab = 2 // Navigate to Analytics tab
+                appStateManager.analyticsNavigationHandled()
+            }
+        }
         .sheet(isPresented: $appStateManager.showOnboarding) {
             OnboardingView(
                 appName: "Pomodoro Timer",
@@ -98,6 +104,7 @@ struct ContentView: View {
                 .onDisappear {
                     appStateManager.paywallDismissed()
                 }
+                .interactiveDismissDisabled(true) // Prevent swipe-to-dismiss until X button is shown
         }
     }
     
