@@ -66,11 +66,14 @@ struct ContentView: View {
 
         }
         .accentColor(.black)
+        .animation(.easeInOut(duration: 0.3), value: selectedTab)
         .onAppear {
             initializeStateManager()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCollectionTab)) { _ in
-            selectedTab = 2 // Switch to Collection tab
+            withAnimation(.easeInOut(duration: 0.4)) {
+                selectedTab = 2 // Switch to Collection tab with animation
+            }
         }
     }
     
