@@ -14,9 +14,11 @@ class AppStateManager: ObservableObject {
     @Published var showPaywall = false
     @Published var isSubscribed = false
     @Published var navigateToAnalytics = false
+    @Published var paywallIsManuallyOpened = false
     
     private let purchaseModel = PurchaseModel()
     private var wasSubscribed = false
+    private var hasCompletedInitialSubscriptionCheck = false
     private var cancellables = Set<AnyCancellable>()
     
     init() {
@@ -40,14 +42,16 @@ class AppStateManager: ObservableObject {
             .sink { [weak self] newSubscriptionStatus in
                 guard let self = self else { return }
                 
-                // Check if this is a new subscription (wasn't subscribed before, now is)
-                if !self.wasSubscribed && newSubscriptionStatus {
+                // Immediately update subscription status for instant UI feedback
+                self.isSubscribed = newSubscriptionStatus
+                
+                // Only navigate to analytics if this is a new purchase (not initial app launch detection)
+                if !self.wasSubscribed && newSubscriptionStatus && self.hasCompletedInitialSubscriptionCheck {
                     // Purchase was successful - dismiss paywall and navigate to analytics
                     self.showPaywall = false
                     self.navigateToAnalytics = true
                 }
                 
-                self.isSubscribed = newSubscriptionStatus
                 self.wasSubscribed = newSubscriptionStatus
             }
             .store(in: &cancellables)
@@ -61,8 +65,13 @@ class AppStateManager: ObservableObject {
             DispatchQueue.main.async {
                 if !self.purchaseModel.isSubscribed {
                     self.showPaywall = true
+                    self.paywallIsManuallyOpened = false // Automatic display
                 }
                 self.isSubscribed = self.purchaseModel.isSubscribed
+                self.wasSubscribed = self.purchaseModel.isSubscribed
+                
+                // Mark initial subscription check as complete
+                self.hasCompletedInitialSubscriptionCheck = true
             }
         }
     }
@@ -74,16 +83,19 @@ class AppStateManager: ObservableObject {
         // After onboarding, check if we need to show paywall
         if !purchaseModel.isSubscribed {
             showPaywall = true
+            paywallIsManuallyOpened = false // Automatic display
         }
     }
     
     func paywallDismissed() {
         showPaywall = false
+        paywallIsManuallyOpened = false
         isSubscribed = purchaseModel.isSubscribed
     }
     
     func presentPaywall() {
         showPaywall = true
+        paywallIsManuallyOpened = true // Manual display
     }
     
     func analyticsNavigationHandled() {

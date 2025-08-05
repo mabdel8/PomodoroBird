@@ -99,6 +99,11 @@ class PurchaseModel: ObservableObject {
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
+                
+                // Immediately update subscription status for instant UI feedback
+                self.isSubscribed = true
+                
+                // Then do the full status check to ensure consistency
                 await updateSubscriptionStatus()
                 await transaction.finish()
                 
@@ -170,6 +175,13 @@ class PurchaseModel: ObservableObject {
             for await result in Transaction.updates {
                 do {
                     let transaction = try self.checkVerified(result)
+                    
+                    // Immediately update subscription status for instant UI feedback
+                    await MainActor.run {
+                        self.isSubscribed = true
+                    }
+                    
+                    // Then do the full status check to ensure consistency
                     await self.updateSubscriptionStatus()
                     await transaction.finish()
                 } catch {

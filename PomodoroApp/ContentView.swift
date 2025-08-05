@@ -23,6 +23,36 @@ struct ContentView: View {
     @State private var stateManager: TimerStateManager?
     
     var body: some View {
+        Group {
+            if appStateManager.showOnboarding {
+                OnboardingFlowView {
+                    appStateManager.onboardingCompleted()
+                }
+            } else if appStateManager.showPaywall {
+                PurchaseView(
+                    isPresented: $appStateManager.showPaywall,
+                    hasCooldown: !appStateManager.paywallIsManuallyOpened
+                )
+                    .environmentObject(appStateManager.purchaseManager)
+                    .onDisappear {
+                        appStateManager.paywallDismissed()
+                    }
+            } else {
+                mainAppContent
+            }
+        }
+        .onAppear {
+            initializeStateManager()
+        }
+        .onChange(of: appStateManager.navigateToAnalytics) { shouldNavigate in
+            if shouldNavigate {
+                selectedTab = 2 // Navigate to Analytics tab
+                appStateManager.analyticsNavigationHandled()
+            }
+        }
+    }
+    
+    private var mainAppContent: some View {
         TabView(selection: $selectedTab) {
             Group {
                 if let stateManager = stateManager {
@@ -70,42 +100,8 @@ struct ContentView: View {
                     Text("Collection")
                 }
                 .tag(3)
-            
-
         }
         .accentColor(.black)
-        .onAppear {
-            initializeStateManager()
-        }
-        .onChange(of: appStateManager.navigateToAnalytics) { shouldNavigate in
-            if shouldNavigate {
-                selectedTab = 2 // Navigate to Analytics tab
-                appStateManager.analyticsNavigationHandled()
-            }
-        }
-        .sheet(isPresented: $appStateManager.showOnboarding) {
-            OnboardingView(
-                appName: "Pomodoro Timer",
-                features: [
-                    Feature(title: "Boost Productivity", description: "Stay focused with timed work and break sessions.", icon: "clock"),
-                    Feature(title: "Stay Motivated", description: "Earn unique rewards after each session.", icon: "star"),
-                    Feature(title: "Track Your Progress", description: "View your focus stats and trends over time.", icon: "chart.bar"),
-                    Feature(title: "Minimal & Ad-Free", description: "Enjoy a clean, distraction-free experience.", icon: "sparkles")
-                ],
-                color: Color.blue
-            )
-            .onDisappear {
-                appStateManager.onboardingCompleted()
-            }
-        }
-        .sheet(isPresented: $appStateManager.showPaywall) {
-            PurchaseView(isPresented: $appStateManager.showPaywall)
-                .environmentObject(appStateManager.purchaseManager)
-                .onDisappear {
-                    appStateManager.paywallDismissed()
-                }
-                .interactiveDismissDisabled(true) // Prevent swipe-to-dismiss until X button is shown
-        }
     }
     
     private func initializeStateManager() {
