@@ -8,11 +8,13 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import StoreKit
 
 // MARK: - Timer Settings View
 struct TimerSettingsView: View {
     @Binding var selectedDuration: Double
     @ObservedObject var notificationManager: NotificationManager
+    @ObservedObject var appStateManager: AppStateManager
     let onDurationChange: (Double) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -29,6 +31,9 @@ struct TimerSettingsView: View {
     @State private var showingExportSheet = false
     @State private var isBackingUpToCloud = false
     @State private var backupStatus = ""
+    @State private var showingPaywall = false
+    @State private var showingBreakTimerConfig = false
+    @State private var breakTimerDuration: Int = 5 // Default break timer in minutes
     
     let quickDurations = [1, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120]
     
@@ -36,10 +41,10 @@ struct TimerSettingsView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Notifications
+                    // Configuration
                     VStack(alignment: .leading, spacing: 12) {
-                        sectionHeader("Notifications")
-                        notificationsContainer
+                        sectionHeader("Configuration")
+                        configurationContainer
                     }
                     
                     // Alarm Settings
@@ -100,6 +105,23 @@ struct TimerSettingsView: View {
             .sheet(isPresented: $showingExportSheet) {
                 ExportDataView(focusSessions: focusSessions)
             }
+            .sheet(isPresented: $showingPaywall) {
+                PurchaseView(isPresented: $showingPaywall, hasCooldown: true)
+                    .environmentObject(appStateManager.purchaseManager)
+                    .onDisappear {
+                        // Refresh subscription state when paywall is dismissed
+                        appStateManager.refreshSubscriptionState()
+                        // Refresh break timer duration in case user purchased premium
+                        breakTimerDuration = notificationManager.testBreakDuration
+                    }
+            }
+            .sheet(isPresented: $showingBreakTimerConfig) {
+                BreakTimerConfigView(
+                    duration: $breakTimerDuration, 
+                    isPresented: $showingBreakTimerConfig,
+                    notificationManager: notificationManager
+                )
+            }
             .alert("Reset App", isPresented: $showingResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Reset", role: .destructive) {
@@ -126,21 +148,24 @@ struct TimerSettingsView: View {
             }
             .onAppear {
                 notificationManager.checkNotificationPermission()
+                // Initialize breakTimerDuration from NotificationManager
+                breakTimerDuration = notificationManager.testBreakDuration
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .subscriptionStateChanged)) { _ in
+                // Force UI refresh when subscription state changes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    // This will trigger a UI refresh
+                    breakTimerDuration = notificationManager.testBreakDuration
+                }
             }
         }
     }
     
     // MARK: - Section Containers
     
-    private var notificationsContainer: some View {
+    private var configurationContainer: some View {
         VStack(spacing: 0) {
-            focusRemindersRow
-            Divider()
-                .padding(.leading, 56)
-            breakRemindersRow
-            Divider()
-                .padding(.leading, 56)
-            dailySummaryRow
+            breakTimerConfigRow
         }
         .background(containerBackground())
     }
@@ -312,15 +337,7 @@ struct TimerSettingsView: View {
                 title: "Rate App",
                 subtitle: "Share your feedback",
                 icon: "star",
-                action: { /* Handle app store rating */ }
-            )
-            Divider()
-                .padding(.leading, 56)
-            settingsRow(
-                title: "Contact Support",
-                subtitle: "Get help and support",
-                icon: "envelope",
-                action: { /* Handle support contact */ }
+                action: { requestAppRating() }
             )
         }
         .background(containerBackground())
@@ -335,7 +352,7 @@ struct TimerSettingsView: View {
                 title: "Terms of Service",
                 subtitle: "Read our terms",
                 icon: "doc.text",
-                action: { /* Handle terms */ }
+                action: { openTermsOfService() }
             )
             Divider()
                 .padding(.leading, 56)
@@ -343,13 +360,52 @@ struct TimerSettingsView: View {
                 title: "Privacy Policy",
                 subtitle: "Read our privacy policy",
                 icon: "hand.raised",
-                action: { /* Handle privacy policy */ }
+                action: { openPrivacyPolicy() }
             )
         }
         .background(containerBackground())
     }
     
     // MARK: - Individual Rows
+    
+    private var breakTimerConfigRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Break Timer Duration")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                                            if !appStateManager.isSubscribed {
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.orange)
+                        }
+                }
+                
+                Text(appStateManager.isSubscribed ? "\(breakTimerDuration) minutes" : "Customize your break duration")
+                    .font(.custom("Geist", size: 14))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if appStateManager.isSubscribed {
+                showingBreakTimerConfig = true
+            } else {
+                showingPaywall = true
+            }
+        }
+    }
     
     private var focusRemindersRow: some View {
         HStack {
@@ -484,36 +540,37 @@ struct TimerSettingsView: View {
     }
     
     private var alarmSoundRow: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Alarm Sound")
-                    .font(.custom("Geist", size: 16))
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                
-                Text(notificationManager.selectedAlarmSound.displayName)
-                    .font(.custom("Geist", size: 14))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Menu {
-                ForEach(NotificationManager.AlarmSound.allCases, id: \.self) { sound in
-                    Button(sound.displayName) {
-                        notificationManager.selectedAlarmSound = sound
-                        notificationManager.testAlarmSound()
-                        notificationManager.saveSettings()
-                    }
+        Menu {
+            ForEach(NotificationManager.AlarmSound.allCases, id: \.self) { sound in
+                Button(sound.displayName) {
+                    notificationManager.selectedAlarmSound = sound
+                    notificationManager.testAlarmSound()
+                    notificationManager.saveSettings()
                 }
-            } label: {
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Alarm Sound")
+                        .font(.custom("Geist", size: 16))
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                    
+                    Text(notificationManager.selectedAlarmSound.displayName)
+                        .font(.custom("Geist", size: 14))
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .buttonStyle(PlainButtonStyle())
     }
     
     private var testModeRow: some View {
@@ -814,6 +871,32 @@ struct TimerSettingsView: View {
         UserDefaults.standard.removePersistentDomain(forName: domain)
         UserDefaults.standard.synchronize()
     }
+    
+    // MARK: - New Action Methods
+    
+    private func requestAppRating() {
+        if #available(iOS 18.0, *) {
+            if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                AppStore.requestReview(in: scene)
+            }
+        } else {
+            if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+        }
+    }
+    
+    private func openTermsOfService() {
+        if let url = URL(string: "https://abdalla2024.github.io/FokisPomodoroTimer/#/terms") {
+            UIApplication.shared.open(url)
+        }
+    }
+    
+    private func openPrivacyPolicy() {
+        if let url = URL(string: "https://abdalla2024.github.io/FokisPomodoroTimer/#/terms") {
+            UIApplication.shared.open(url)
+        }
+    }
 }
 
 // MARK: - Export Data View
@@ -976,5 +1059,132 @@ struct SettingsToggleRow: View {
                 }
         }
         .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Break Timer Configuration View
+struct BreakTimerConfigView: View {
+    @Binding var duration: Int
+    @Binding var isPresented: Bool
+    @ObservedObject var notificationManager: NotificationManager
+    
+    private let breakDurations = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30]
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Current Duration Display
+                    VStack(spacing: 12) {
+                        Text("Break Timer Duration")
+                            .font(.custom("Geist", size: 18))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        Text("\(duration) minutes")
+                            .font(.custom("Geist", size: 32))
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.top, 20)
+                    
+                    // Stepper Control
+                    VStack(spacing: 16) {
+                        HStack {
+                                                    Button(action: {
+                            if duration > 1 {
+                                duration -= 1
+                                notificationManager.testBreakDuration = duration
+                                notificationManager.saveSettings()
+                            }
+                        }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(duration > 1 ? .orange : .gray)
+                            }
+                            .disabled(duration <= 1)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                if duration < 60 {
+                                    duration += 1
+                                    notificationManager.testBreakDuration = duration
+                                    notificationManager.saveSettings()
+                                }
+                            }) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(duration < 60 ? .orange : .gray)
+                            }
+                            .disabled(duration >= 60)
+                        }
+                        .padding(.horizontal, 40)
+                        
+                        // Range info
+                        Text("Choose between 1-60 minutes")
+                            .font(.custom("Geist", size: 14))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // Quick Selection Grid
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Quick Selection")
+                            .font(.custom("Geist", size: 16))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 12) {
+                            ForEach(breakDurations, id: \.self) { time in
+                                Button(action: {
+                                    duration = time
+                                    notificationManager.testBreakDuration = time
+                                    notificationManager.saveSettings()
+                                }) {
+                                    Text("\(time)m")
+                                        .font(.custom("Geist", size: 16))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(duration == time ? .white : .primary)
+                                        .frame(height: 44)
+                                        .frame(maxWidth: .infinity)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(duration == time ? Color.orange : Color.white)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .stroke(duration == time ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1)
+                                                )
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                    }
+                    
+                    Spacer(minLength: 100)
+                }
+                .padding(.horizontal, 24)
+            }
+            .background(Color(.systemBackground))
+            .navigationTitle("Break Duration")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        notificationManager.testBreakDuration = duration
+                        notificationManager.saveSettings()
+                        isPresented = false
+                    }
+                    .font(.custom("Geist", size: 16))
+                    .fontWeight(.semibold)
+                    .foregroundColor(.orange)
+                }
+            }
+        }
     }
 }

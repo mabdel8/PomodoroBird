@@ -45,11 +45,22 @@ class AppStateManager: ObservableObject {
                 // Immediately update subscription status for instant UI feedback
                 self.isSubscribed = newSubscriptionStatus
                 
+                // Force UI refresh by posting notification
+                if newSubscriptionStatus != self.wasSubscribed {
+                    print("🔄 AppStateManager: Subscription state changed to \(newSubscriptionStatus)")
+                    NotificationCenter.default.post(name: .subscriptionStateChanged, object: newSubscriptionStatus)
+                }
+                
                 // Only navigate to analytics if this is a new purchase (not initial app launch detection)
                 if !self.wasSubscribed && newSubscriptionStatus && self.hasCompletedInitialSubscriptionCheck {
                     // Purchase was successful - dismiss paywall and navigate to analytics
                     self.showPaywall = false
                     self.navigateToAnalytics = true
+                    
+                    // Add a small delay to ensure UI updates propagate
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        self.objectWillChange.send()
+                    }
                 }
                 
                 self.wasSubscribed = newSubscriptionStatus
@@ -105,4 +116,19 @@ class AppStateManager: ObservableObject {
     var purchaseManager: PurchaseModel {
         return purchaseModel
     }
+    
+    /// Force refresh subscription state - useful for manual refresh
+    func refreshSubscriptionState() {
+        let task = _Concurrency.Task { @MainActor in
+            await self.purchaseModel.checkSubscriptionStatus()
+            self.isSubscribed = self.purchaseModel.isSubscribed
+            self.objectWillChange.send()
+        }
+        _ = task
+    }
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    static let subscriptionStateChanged = Notification.Name("subscriptionStateChanged")
 }

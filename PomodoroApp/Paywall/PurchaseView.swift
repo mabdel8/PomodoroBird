@@ -367,12 +367,12 @@ struct PurchaseView: View {
                             ActionSheet(title: Text("View Terms & Conditions"), message: nil,
                                         buttons: [
                                             .default(Text("Terms of Use"), action: {
-                                                if let url = URL(string: "https://example.com") {
+                                                if let url = URL(string: "https://abdalla2024.github.io/FokisPomodoroTimer/#/terms") {
                                                     UIApplication.shared.open(url)
                                                 }
                                             }),
                                             .default(Text("Privacy Policy"), action: {
-                                                if let url = URL(string: "https://example.com") {
+                                                if let url = URL(string: "https://abdalla2024.github.io/FokisPomodoroTimer/#/terms") {
                                                     UIApplication.shared.open(url)
                                                 }
                                             }),
@@ -413,6 +413,9 @@ struct PurchaseView: View {
         }
         .onChange(of: purchaseModel.isSubscribed) { isSubscribed in
             if(isSubscribed) {
+                // Post notification for instant UI updates
+                NotificationCenter.default.post(name: .subscriptionStateChanged, object: isSubscribed)
+                
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isPresented = false
                 }
