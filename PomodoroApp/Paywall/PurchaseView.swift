@@ -139,19 +139,20 @@ struct PurchaseView: View {
                             }
                         }
                 }
+                .padding(.top, 30)
                 
                 VStack (spacing: 10) {
                     Text("Unlock Premium Access")
-                        .font(.system(size: 30, weight: .semibold))
+                        .font(.custom("Geist", size: 30).weight(.semibold))
                         .multilineTextAlignment(.center)
                         .foregroundColor(.black)
                     VStack (alignment: .leading, spacing: 8) {
                         PurchaseFeatureView(title: "Access full task planning", icon: "calendar", color: color)
-                        PurchaseFeatureView(title: "Gain deeper insights", icon: "chart", color: color)
-                        PurchaseFeatureView(title: "Get smart reminders", icon: "bell", color: color)
+                        PurchaseFeatureView(title: "Gain deeper insights", icon: "charts", color: color)
+                        PurchaseFeatureView(title: "Personalize your focus", icon: "edit", color: color)
                         PurchaseFeatureView(title: "Remove annoying paywalls", icon: "lock", color: color)
                     }
-                    .font(.system(size: 19))
+                    .font(.custom("Geist", size: 19))
                     .padding(.top)
                 }
                 
@@ -174,16 +175,24 @@ struct PurchaseView: View {
                                     HStack {
                                         VStack(alignment: .leading) {
                                             Text(productDetails.durationPlanName)
-                                                .font(.headline.bold())
+                                                .font(.custom("Geist", size: 18).weight(.bold))
                                                 .foregroundColor(.black)
                                             if productDetails.hasTrial {
                                                 Text("then "+productDetails.price+" per "+productDetails.duration)
+                                                    .font(.custom("Geist", size: 14))
                                                     .opacity(0.8)
                                                     .foregroundColor(.black)
                                             }
                                             else {
                                                 HStack (spacing: 0) {
-                                                    if let calculateFullPrice = calculateFullPrice, //round down
+                                                    if productDetails.duration == "lifetime" {
+                                                        Text("$249.99")
+                                                            .strikethrough()
+                                                            .opacity(0.4)
+                                                            .foregroundColor(.black)
+                                                        Text(" " + productDetails.price)
+                                                            .foregroundColor(.black)
+                                                    } else if let calculateFullPrice = calculateFullPrice, //round down
                                                        let calculateFullPriceLocalCurrency = toLocalCurrencyString(calculateFullPrice),
                                                        calculateFullPrice > 0,
                                                        productDetails.duration != "lifetime"
@@ -193,10 +202,12 @@ struct PurchaseView: View {
                                                             .strikethrough()
                                                             .opacity(0.4)
                                                             .foregroundColor(.black)
-                                                        
+                                                        Text(" " + productDetails.price)
+                                                            .foregroundColor(.black)
+                                                    } else {
+                                                        Text(" " + productDetails.price)
+                                                            .foregroundColor(.black)
                                                     }
-                                                    Text(" " + productDetails.price)
-                                                        .foregroundColor(.black)
                                                 }
                                                 .opacity(0.8)
                                             }
@@ -210,7 +221,7 @@ struct PurchaseView: View {
                                         else {
                                             VStack {
                                                 Text("BEST VALUE")
-                                                    .font(.caption.bold())
+                                                    .font(.custom("Geist", size: 12).weight(.bold))
                                                     .foregroundColor(.white)
                                                     .padding(8)
                                             }
@@ -241,7 +252,16 @@ struct PurchaseView: View {
                                         RoundedRectangle(cornerRadius: 6)
                                             .stroke((selectedProductId == productDetails.productId) ? color : Color.black.opacity(0.15), lineWidth: 1) // Border color and width
                                         RoundedRectangle(cornerRadius: 6)
-                                            .foregroundColor((selectedProductId == productDetails.productId) ? color.opacity(0.05) : Color.black.opacity(0.001))
+                                            .fill((selectedProductId == productDetails.productId) ? 
+                                                LinearGradient(
+                                                    colors: [.blue.opacity(0.1), .purple.opacity(0.1)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ) : LinearGradient(
+                                                    colors: [Color.black.opacity(0.001)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ))
                                     }
                                 )
                             }
@@ -252,9 +272,10 @@ struct PurchaseView: View {
                         HStack {
                             Toggle(isOn: $freeTrial) {
                                 Text("Free Trial Enabled")
-                                    .font(.headline.bold())
+                                    .font(.custom("Geist", size: 18).weight(.bold))
                                     .foregroundColor(.black)
                             }
+                            .toggleStyle(SwitchToggleStyle(tint: .black))
                             .padding(.horizontal)
                             .padding(.vertical, 10)
                             .onChange(of: freeTrial) { freeTrial in
@@ -301,7 +322,7 @@ struct PurchaseView: View {
                                 }
                                 .padding()
                                 .foregroundColor(.white)
-                                .font(.title3.bold())
+                                .font(.custom("Geist", size: 20).weight(.bold))
                             }
                             .background(color)
                             .cornerRadius(6)
@@ -480,6 +501,7 @@ struct PurchaseView: View {
                 CustomIconView(iconName: icon, color: color)
                     .frame(width: 27, height: 27)
                 Text(title)
+                    .font(.custom("Geist", size: 16))
                     .foregroundColor(.black)
             }
         }
@@ -494,12 +516,10 @@ struct PurchaseView: View {
                 switch iconName {
                 case "calendar":
                     CalendarIcon()
-                case "chart":
-                    ChartIcon()
-                case "bell":
-                    BellIcon()
-                case "bird":
-                    BirdIcon()
+                case "charts":
+                    ChartsIcon()
+                case "edit":
+                    EditIcon()
                 case "lock":
                     LockIcon()
                 default:
@@ -512,31 +532,23 @@ struct PurchaseView: View {
     
     struct CalendarIcon: View {
         var body: some View {
-            Image(systemName: "calendar")
+            Image("calendar")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
         }
     }
     
-    struct ChartIcon: View {
+    struct ChartsIcon: View {
         var body: some View {
-            Image(systemName: "chart.bar")
+            Image("charts")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
         }
     }
     
-    struct BellIcon: View {
+    struct EditIcon: View {
         var body: some View {
-            Image(systemName: "bell")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-        }
-    }
-    
-    struct BirdIcon: View {
-        var body: some View {
-            Image(systemName: "bird")
+            Image("edit")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
         }
@@ -544,7 +556,7 @@ struct PurchaseView: View {
     
     struct LockIcon: View {
         var body: some View {
-            Image(systemName: "lock")
+            Image("lock")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
         }
