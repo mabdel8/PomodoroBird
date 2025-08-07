@@ -17,6 +17,7 @@ enum TimePeriod: String, CaseIterable {
 
 struct AnalyticsView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appStateManager: AppStateManager
     @Query(sort: \FocusSession.createdAt, order: .reverse) private var focusSessions: [FocusSession]
     @Query(sort: \FocusTag.name) private var tags: [FocusTag]
     @Query(sort: \CollectedBird.collectedAt, order: .reverse) private var collectedBirds: [CollectedBird]
@@ -433,65 +434,72 @@ struct AnalyticsView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                // Header with date navigation and period selector
-                VStack(spacing: 16) {
-                    // Date navigation
-                    HStack {
-                        Button(action: navigatePrevious) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.primary)
+        Group {
+            if appStateManager.isSubscribed {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Header with date navigation and period selector
+                        VStack(spacing: 16) {
+                            // Date navigation
+                            HStack {
+                                Button(action: navigatePrevious) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.primary)
+                                }
+                                
+                                Spacer()
+                                
+                                Text(currentDateString)
+                                    .font(.custom("Geist", size: 20))
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                Button(action: navigateNext) {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(.primary)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.top, 16)
+                            
+                            // Period Selector
+                            periodSelector
                         }
                         
-                        Spacer()
+                        // Stats Overview with History Button
+                        statsContainerWithHistoryButton
                         
-                        Text(currentDateString)
-                            .font(.custom("Geist", size: 20))
-                            .fontWeight(.semibold)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Button(action: navigateNext) {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.primary)
+                        // Pie Chart Section
+                        if !pieChartData.isEmpty {
+                            pieChartContainer
                         }
+                        
+                        // Bar Chart Section
+                        barChartContainer
+                        
+                        // Bird Collection Section
+                        if !collectedBirds.isEmpty {
+                            birdCollectionContainer
+                        }
+                        
+                        Spacer(minLength: 100)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
-                    
-                    // Period Selector
-                    periodSelector
                 }
-                
-                // Stats Overview with History Button
-                statsContainerWithHistoryButton
-                
-                // Pie Chart Section
-                if !pieChartData.isEmpty {
-                    pieChartContainer
+                .background(Color(.systemBackground))
+                .sheet(isPresented: $showingSessionHistory) {
+                    SessionHistoryView(focusSessions: focusSessions)
                 }
-                
-                // Bar Chart Section
-                barChartContainer
-                
-                // Bird Collection Section
-                if !collectedBirds.isEmpty {
-                    birdCollectionContainer
+                .sheet(isPresented: $showingChartDetails) {
+                    ChartDetailsView(categoryBreakdownData: categoryBreakdownData, selectedPeriod: selectedPeriod)
                 }
-                
-                Spacer(minLength: 100)
+            } else {
+                PaywallPromptView()
+                    .environmentObject(appStateManager)
             }
-        }
-        .background(Color(.systemBackground))
-        .sheet(isPresented: $showingSessionHistory) {
-            SessionHistoryView(focusSessions: focusSessions)
-        }
-        .sheet(isPresented: $showingChartDetails) {
-            ChartDetailsView(categoryBreakdownData: categoryBreakdownData, selectedPeriod: selectedPeriod)
         }
     }
     
@@ -1904,6 +1912,7 @@ struct ChartDetailsView: View {
 #Preview {
     AnalyticsView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
+        .environmentObject(AppStateManager())
 }
 
 // MARK: - Notification Extensions

@@ -88,6 +88,7 @@ struct ContentView: View {
                 .tag(2)
             
             AnalyticsView()
+                .environmentObject(appStateManager)
                 .tabItem {
                     Image(selectedTab == 3 ? "chartsfilled" : "charts")
                     Text("Analytics")
@@ -129,10 +130,12 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
+        .environmentObject(AppStateManager())
 }
 
 #Preview("TimerView") {
     ContentView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
+        .environmentObject(AppStateManager())
 }
 
