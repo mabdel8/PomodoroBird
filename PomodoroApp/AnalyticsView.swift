@@ -93,85 +93,7 @@ struct AnalyticsView: View {
         }
     }
     
-    // Heatmap data
-    private var heatmapData: [HeatmapDay] {
-        let calendar = Calendar.current
-        var data: [HeatmapDay] = []
-        
-        let startDate: Date
-        
-        switch selectedPeriod {
-        case .weekly:
-            // Show selected week (always 7 days starting from week start)
-            let weekStart = calendar.dateInterval(of: .weekOfYear, for: currentDate)?.start ?? currentDate
-            startDate = weekStart
-        case .monthly:
-            // Show selected month (calendar month view)
-            startDate = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
-        case .yearly:
-            // Show selected year from January to December
-            startDate = calendar.dateInterval(of: .year, for: currentDate)?.start ?? currentDate
-        }
-        
-        // Group sessions by day
-        let sessionsByDay = Dictionary(grouping: focusSessions.filter { 
-            $0.isCompleted && $0.sessionType == "focus" && $0.createdAt >= startDate
-        }) { session in
-            calendar.startOfDay(for: session.createdAt)
-        }
-        
-        // Create heatmap data for each day
-        var current = startDate
-        
-        switch selectedPeriod {
-        case .weekly:
-            // Always show exactly 7 days for weekly view
-            for i in 0..<7 {
-                let dayDate = calendar.date(byAdding: .day, value: i, to: startDate) ?? startDate
-                let dayStart = calendar.startOfDay(for: dayDate)
-                let sessionsForDay = sessionsByDay[dayStart] ?? []
-                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
-                
-                data.append(HeatmapDay(
-                    date: dayStart,
-                    sessionCount: sessionsForDay.count,
-                    focusMinutes: totalMinutes
-                ))
-            }
-        case .monthly:
-            let finalDate = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
-            while current <= finalDate {
-                let dayStart = calendar.startOfDay(for: current)
-                let sessionsForDay = sessionsByDay[dayStart] ?? []
-                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
-                
-                data.append(HeatmapDay(
-                    date: dayStart,
-                    sessionCount: sessionsForDay.count,
-                    focusMinutes: totalMinutes
-                ))
-                
-                current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
-            }
-        case .yearly:
-            let yearEnd = calendar.dateInterval(of: .year, for: currentDate)?.end ?? currentDate
-            while current <= yearEnd {
-                let dayStart = calendar.startOfDay(for: current)
-                let sessionsForDay = sessionsByDay[dayStart] ?? []
-                let totalMinutes = sessionsForDay.reduce(0) { $0 + ($1.actualDuration / 60) }
-                
-                data.append(HeatmapDay(
-                    date: dayStart,
-                    sessionCount: sessionsForDay.count,
-                    focusMinutes: totalMinutes
-                ))
-                
-                current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
-            }
-        }
-        
-        return data
-    }
+
     
     // Pie chart data
     private var pieChartData: [TagTimeData] {
@@ -723,134 +645,7 @@ struct AnalyticsView: View {
         }
     }
     
-    private var activityHeatmap: some View {
-        Group {
-            switch selectedPeriod {
-            case .weekly:
-                weeklyHeatmap
-            case .monthly:
-                monthlyHeatmap
-            case .yearly:
-                yearlyHeatmap
-            }
-        }
-    }
-    
-    private var weeklyHeatmap: some View {
-        VStack(spacing: 16) {
-            // Weekly calendar - centered
-            HStack(spacing: 4) {
-                ForEach(heatmapData, id: \.date) { day in
-                    VStack(spacing: 4) {
-                        Text(dayOfWeekShort(day.date))
-                            .font(.custom("Geist", size: 10))
-                            .foregroundColor(.secondary)
-                        
-                        Rectangle()
-                            .fill(heatmapColor(for: day.focusMinutes))
-                            .frame(width: 32, height: 32)
-                            .cornerRadius(6)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity)
-            
-            // Legend - bottom right
-            HStack {
-                Spacer()
-                heatmapLegend
-            }
-        }
-    }
-    
-    private var monthlyHeatmap: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 4) {
-                // Days of week header
-                HStack(spacing: 4) {
-                    ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
-                        Text(day)
-                            .font(.custom("Geist", size: 12))
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
-                            .frame(width: 32)
-                    }
-                }
-                
-                // Calendar grid
-                let weeks = generateCalendarWeeks()
-                ForEach(0..<weeks.count, id: \.self) { weekIndex in
-                    HStack(spacing: 4) {
-                        ForEach(weeks[weekIndex], id: \.date) { day in
-                            Rectangle()
-                                .fill(day.isCurrentMonth ? heatmapColor(for: day.focusMinutes) : Color.clear)
-                                .frame(width: 32, height: 32)
-                                .cornerRadius(6)
-                        }
-                    }
-                }
-            }
-            
-            // Legend
-            HStack {
-                Spacer()
-                heatmapLegend
-            }
-        }
-    }
-    
-    private var yearlyHeatmap: some View {
-        VStack(spacing: 16) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 4) {
-                    // Month labels - compact
-                    monthLabelsForYearly
-                    
-                    // Heatmap grid
-                    LazyHGrid(rows: Array(repeating: GridItem(.fixed(12), spacing: 2), count: 15), spacing: 2) {
-                        ForEach(heatmapData, id: \.date) { day in
-                            Rectangle()
-                                .fill(heatmapColor(for: day.focusMinutes))
-                                .frame(width: 12, height: 12)
-                                .cornerRadius(2)
-                        }
-                    }
-                }
-            }
-            
-            // Legend
-            HStack {
-                Spacer()
-                heatmapLegend
-            }
-        }
-    }
-    
-    private var heatmapContainer: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Text("Activity Heatmap")
-                    .font(.custom("Geist", size: 20))
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-            }
-            
-            activityHeatmap
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.gray.opacity(0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-        )
-        .padding(.horizontal, 24)
-    }
+
     
     private var pieChartContainer: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -1247,69 +1042,7 @@ struct AnalyticsView: View {
         .frame(height: 200)
     }
     
-    private var monthLabelsForYearly: some View {
-        let monthAbbreviations = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        let totalColumns = Int(ceil(Double(heatmapData.count) / 15.0))
-        
-        return HStack(spacing: 0) {
-            ForEach(0..<totalColumns, id: \.self) { columnIndex in
-                let monthIndex = columnIndex / 2 // Every 2 columns = roughly 1 month
-                
-                let shouldShow = columnIndex % 2 == 0 && monthIndex < monthAbbreviations.count
-                let monthText = shouldShow ? monthAbbreviations[monthIndex] : ""
-                
-                Text(monthText)
-                    .font(.custom("Geist", size: 7))
-                    .foregroundColor(.secondary)
-                    .frame(width: 14.5, alignment: .center) // Minimal spacing between months
-            }
-        }
-    }
-    
-    private var heatmapLegend: some View {
-        HStack(spacing: 4) {
-            Text("Less")
-                .font(.custom("Geist", size: 11))
-                .foregroundColor(.secondary)
-            
-            Rectangle()
-                .fill(Color.gray.opacity(0.1))
-                .frame(width: 10, height: 10)
-                .cornerRadius(2)
-            
-            Rectangle()
-                .fill(Color.green.opacity(0.3))
-                .frame(width: 10, height: 10)
-                .cornerRadius(2)
-            
-            Rectangle()
-                .fill(Color.green.opacity(0.6))
-                .frame(width: 10, height: 10)
-                .cornerRadius(2)
-            
-            Rectangle()
-                .fill(Color.green.opacity(0.9))
-                .frame(width: 10, height: 10)
-                .cornerRadius(2)
-            
-            Text("More")
-                .font(.custom("Geist", size: 11))
-                .foregroundColor(.secondary)
-        }
-    }
-    
-    private func heatmapColor(for minutes: Int) -> Color {
-        switch minutes {
-        case 0:
-            return Color.gray.opacity(0.1) // No focus
-        case 1...59:
-            return Color.green.opacity(0.3) // Less than 1 hour
-        case 60...179:
-            return Color.green.opacity(0.6) // 1-3 hours
-        default:
-            return Color.green.opacity(0.9) // More than 3 hours
-        }
-    }
+
     
     private func colorFromString(_ colorString: String) -> Color {
         switch colorString {
@@ -1349,63 +1082,11 @@ struct AnalyticsView: View {
         showingChartDetails = true
     }
     
-    private func dayOfWeekShort(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "E"
-        return String(formatter.string(from: date).prefix(1))
-    }
+
     
-    private func monthName(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: date)
-    }
+
     
-    private func generateCalendarWeeks() -> [[CalendarDay]] {
-        let calendar = Calendar.current
-        let monthStart = calendar.dateInterval(of: .month, for: currentDate)?.start ?? currentDate
-        let monthEnd = calendar.dateInterval(of: .month, for: currentDate)?.end ?? currentDate
-        
-        // Find the start of the calendar view (beginning of week containing first day of month)
-        let weekStart = calendar.dateInterval(of: .weekOfYear, for: monthStart)?.start ?? monthStart
-        
-        var weeks: [[CalendarDay]] = []
-        var currentWeek: [CalendarDay] = []
-        var current = weekStart
-        
-        // Generate 6 weeks to ensure we cover the entire month
-        for _ in 0..<42 { // 6 weeks * 7 days
-            let isCurrentMonth = calendar.isDate(current, equalTo: monthStart, toGranularity: .month)
-            
-            // Find session data for this day
-            let dayData = heatmapData.first { calendar.isDate($0.date, inSameDayAs: current) }
-            
-            currentWeek.append(CalendarDay(
-                date: current,
-                focusMinutes: dayData?.focusMinutes ?? 0,
-                isCurrentMonth: isCurrentMonth
-            ))
-            
-            if currentWeek.count == 7 {
-                weeks.append(currentWeek)
-                currentWeek = []
-                
-                // Stop if we've gone past the month and completed a week
-                if current > monthEnd && weeks.count >= 4 {
-                    break
-                }
-            }
-            
-            current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
-        }
-        
-        // Add any remaining days
-        if !currentWeek.isEmpty {
-            weeks.append(currentWeek)
-        }
-        
-        return weeks
-    }
+
     
     private func timeAgo(from date: Date) -> String {
         let now = Date()
@@ -1622,18 +1303,6 @@ struct BirdCollectionItem: View {
 
 // MARK: - Data Models
 
-struct HeatmapDay {
-    let date: Date
-    let sessionCount: Int
-    let focusMinutes: Int
-}
-
-struct CalendarDay {
-    let date: Date
-    let focusMinutes: Int
-    let isCurrentMonth: Bool
-}
-
 struct TagTimeData {
     let tagName: String
     let minutes: Int
@@ -1757,20 +1426,42 @@ struct SessionHistoryView: View {
 struct SessionRowView: View {
     let session: FocusSession
     
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }
-    
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter
     }
     
-        var body: some View {
+    var formattedSessionTime: String {
+        let hours = session.actualDuration / 3600
+        let minutes = (session.actualDuration % 3600) / 60
+        let seconds = session.actualDuration % 60
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m \(seconds)s"
+        } else if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+    
+    var formattedBreakTime: String {
+        if session.breakDuration > 0 {
+            let minutes = session.breakDuration / 60
+            let seconds = session.breakDuration % 60
+            
+            if minutes > 0 {
+                return "\(minutes)m \(seconds)s"
+            } else {
+                return "\(seconds)s"
+            }
+        } else {
+            return "0s"
+        }
+    }
+    
+    var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(session.taskTitle ?? "Focus Session")
@@ -1794,23 +1485,35 @@ struct SessionRowView: View {
 
             Spacer()
 
+            // Time tags on the right side - matching completed task cards
             VStack(alignment: .trailing, spacing: 4) {
-                // Duration as pill
-                Text("\(session.actualDuration / 60) min")
-                    .font(.custom("Geist", size: 12))
-                    .fontWeight(.medium)
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(Color.black.opacity(0.1))
-                    )
-
-                // Time only (no date)
-                Text(timeFormatter.string(from: session.createdAt))
-                    .font(.custom("Geist", size: 11))
-                    .foregroundColor(.secondary)
+                // Time spent tag (no background)
+                if session.actualDuration > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.black)
+                        
+                        Text(formattedSessionTime)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
+                }
+                
+                // Break time tag (no background)
+                if session.breakDuration > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cup.and.heat.waves")
+                            .font(.system(size: 10))
+                            .foregroundColor(.black)
+                        
+                        Text(formattedBreakTime)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
+                }
             }
         }
     }
