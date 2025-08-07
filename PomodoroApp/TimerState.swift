@@ -46,6 +46,11 @@ class TimerStateManager {
     var quickTaskName = ""
     var selectedTagForQuickTask: FocusTag?
     
+    // New Task Sheet properties
+    var showingNewTaskSheet = false
+    var newTaskDuration = 25
+    var newTaskPlannedDate = Date()
+    
     // Bird hatching system
     var showingHatchingAnimation = false
     var hatchedBird: BirdType?
@@ -1386,6 +1391,32 @@ class TimerStateManager {
         quickTaskName = ""
         selectedTagForQuickTask = nil
         showingQuickTaskCreation = false
+    }
+    
+    func createNewTask() {
+        guard !newTaskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        let task = Task(title: newTaskName, duration: newTaskDuration, tag: selectedTagForNewTask, plannedDate: newTaskPlannedDate)
+        modelContext.insert(task)
+        
+        do {
+            try modelContext.save()
+            newTaskName = ""
+            selectedTagForNewTask = nil
+            newTaskDuration = 25
+            newTaskPlannedDate = Date()
+            showingNewTaskSheet = false
+        } catch {
+            print("Error saving new task: \(error)")
+        }
+    }
+    
+    func cancelNewTask() {
+        newTaskName = ""
+        selectedTagForNewTask = nil
+        newTaskDuration = 25
+        newTaskPlannedDate = Date()
+        showingNewTaskSheet = false
     }
     
     func endBreakEarly() {
