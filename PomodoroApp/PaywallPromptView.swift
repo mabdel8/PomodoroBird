@@ -17,7 +17,7 @@ struct PaywallPromptView: View {
             VStack(spacing: 16) {
                 Image(systemName: "chart.bar.fill")
                     .font(.system(size: 64))
-                    .foregroundColor(.blue)
+                    .foregroundColor(.black)
                 
                 Text("Analytics Premium")
                     .font(.custom("Geist", size: 28))
@@ -74,7 +74,7 @@ struct FeatureRow: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundColor(.blue)
+                .foregroundColor(.black)
                 .frame(width: 24)
             
             Text(title)
