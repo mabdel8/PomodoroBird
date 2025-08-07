@@ -668,7 +668,9 @@ struct TimerSheetsModifier: ViewModifier {
                             stateManager.timeRemaining = stateManager.selectedDuration * 60
                             stateManager.totalTime = stateManager.selectedDuration * 60
                         }
-                        stateManager.showingTaskSelector = false
+                    },
+                    onAddTask: {
+                        stateManager.showingNewTaskSheet = true
                     }
                 )
             }
@@ -727,6 +729,32 @@ struct TimerSheetsModifier: ViewModifier {
                     tags: tags,
                     onSave: stateManager.createQuickTaskAndStartTimer,
                     onCancel: stateManager.cancelQuickTaskCreation
+                )
+            }
+            .sheet(isPresented: Binding(
+                get: { stateManager.showingNewTaskSheet },
+                set: { stateManager.showingNewTaskSheet = $0 }
+            )) {
+                NewTaskSheet(
+                    taskTitle: Binding(
+                        get: { stateManager.newTaskName },
+                        set: { stateManager.newTaskName = $0 }
+                    ),
+                    selectedTag: Binding(
+                        get: { stateManager.selectedTagForNewTask },
+                        set: { stateManager.selectedTagForNewTask = $0 }
+                    ),
+                    taskDuration: Binding(
+                        get: { stateManager.newTaskDuration },
+                        set: { stateManager.newTaskDuration = $0 }
+                    ),
+                    plannedDate: Binding(
+                        get: { stateManager.newTaskPlannedDate },
+                        set: { stateManager.newTaskPlannedDate = $0 }
+                    ),
+                    tags: tags,
+                    onSave: stateManager.createNewTask,
+                    onCancel: stateManager.cancelNewTask
                 )
             }
     }

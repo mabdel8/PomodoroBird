@@ -79,29 +79,32 @@ struct ContentView: View {
                 }
                 .tag(1)
             
-            Group {
-                if appStateManager.isSubscribed {
-                    AnalyticsView()
-                } else {
-                    PaywallPromptView()
-                        .environmentObject(appStateManager)
-                }
-            }
+            CollectionView()
                 .tabItem {
-                    Image(selectedTab == 2 ? "chartsfilled" : "charts")
-                    Text("Analytics")
+                    Image(selectedTab == 2 ? "collectionsfilled" : "collections")
+                        .font(.system(size: 18))
+                    Text("Collection")
                 }
                 .tag(2)
             
-            CollectionView()
+            AnalyticsView()
+                .environmentObject(appStateManager)
                 .tabItem {
-                    Image(selectedTab == 3 ? "collectionsfilled" : "collections")
-                        .font(.system(size: 18))
-                    Text("Collection")
+                    Image(selectedTab == 3 ? "chartsfilled" : "charts")
+                    Text("Analytics")
                 }
                 .tag(3)
         }
         .accentColor(.black)
+        .animation(.easeInOut(duration: 0.3), value: selectedTab)
+        .onAppear {
+            initializeStateManager()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openCollectionTab)) { _ in
+            withAnimation(.easeInOut(duration: 0.4)) {
+                selectedTab = 2 // Switch to Collection tab with animation
+            }
+        }
     }
     
     private func initializeStateManager() {
@@ -127,10 +130,12 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
+        .environmentObject(AppStateManager())
 }
 
 #Preview("TimerView") {
     ContentView()
         .modelContainer(for: [FocusTag.self, Task.self, FocusSession.self, AppTimerState.self, CollectedBird.self], inMemory: true)
+        .environmentObject(AppStateManager())
 }
 

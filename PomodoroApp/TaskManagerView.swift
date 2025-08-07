@@ -671,17 +671,32 @@ struct CompletedTaskRowView: View {
                     .foregroundColor(.secondary)
                     .strikethrough(true)
                 
-                // Only show tag name on left side
-                if let tagName = task.tagName {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(tagColor)
-                            .frame(width: 8, height: 8)
-                        
-                        Text(tagName)
+                HStack(spacing: 8) {
+                    if let tagName = task.tagName {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(tagColor)
+                                .frame(width: 8, height: 8)
+                            
+                            Text(tagName)
+                                .font(.custom("Geist", size: 12))
+                                .fontWeight(.light)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Time spent badge (only show time, no clock icon)
+                    if totalTimeSpentInSeconds > 0 {
+                        Text(formattedTime)
                             .font(.custom("Geist", size: 12))
-                            .fontWeight(.light)
-                            .foregroundColor(.secondary)
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.black.opacity(0.1))
+                            )
                     }
                 }
             }
@@ -794,6 +809,12 @@ struct NewTaskSheet: View {
         }
     }
     
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -852,7 +873,7 @@ struct NewTaskSheet: View {
                                             .font(.system(size: 16))
                                             .foregroundColor(.black)
                                         
-                                        Text(plannedDate, style: .date)
+                                        Text(formatDate(plannedDate))
                                             .foregroundColor(.black)
                                             .font(.custom("Geist", size: 16))
                                             .fontWeight(.medium)

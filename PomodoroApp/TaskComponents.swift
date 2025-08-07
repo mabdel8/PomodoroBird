@@ -14,22 +14,58 @@ struct TaskSelectorSheet: View {
     let availableTasks: [Task]
     let selectedTask: Task?
     let onTaskSelected: (Task?) -> Void
+    let onAddTask: () -> Void
     
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 32) {
-                    headerSection
-                    quickStartSection
-                    if !availableTasks.isEmpty {
-                        availableTasksSection
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 32) {
+                        headerSection
+                        if !availableTasks.isEmpty {
+                            availableTasksSection
+                        } else {
+                            emptyStateSection
+                        }
+                        Spacer(minLength: 100)
                     }
-                    Spacer(minLength: 100)
                 }
+                
+                // Add Task Button at bottom
+                VStack(spacing: 16) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            dismiss()
+                            onAddTask()
+                        }
+                    }) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 18, weight: .semibold))
+                            
+                            Text("Add Task")
+                                .font(.custom("Geist", size: 16))
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.black)
+                        )
+                        .scaleEffect(1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: true)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 32)
+                .background(Color.white)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.white)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -39,6 +75,7 @@ struct TaskSelectorSheet: View {
                     }
                     .font(.custom("Geist", size: 16))
                     .fontWeight(.medium)
+                    .foregroundColor(.black)
                 }
             }
         }
@@ -54,56 +91,16 @@ struct TaskSelectorSheet: View {
         .padding(.bottom, 16)
     }
     
-    private var quickStartSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Quick Start")
-                .font(.custom("Geist", size: 16))
-                .fontWeight(.medium)
-                .foregroundColor(.black)
-            
-            Button(action: { onTaskSelected(nil) }) {
-                HStack {
-                    Text("No specific task")
-                        .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    if selectedTask == nil {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.blue)
-                            .font(.system(size: 20))
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .frame(height: 44)
-                .background(quickStartBackground)
-            }
-            .buttonStyle(PlainButtonStyle())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 24)
-    }
-    
-    private var quickStartBackground: some View {
-        RoundedRectangle(cornerRadius: 10)
-            .fill(Color.white)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(selectedTask == nil ? Color.blue : Color.gray.opacity(0.3), lineWidth: selectedTask == nil ? 2 : 1)
-            )
-    }
-    
     private var availableTasksSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Available Tasks")
-                .font(.custom("Geist", size: 16))
+                .font(.custom("Geist", size: 14))
                 .fontWeight(.medium)
-                .foregroundColor(.black)
+                .foregroundColor(.secondary)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
             
-            VStack(spacing: 8) {
+            VStack(spacing: 12) {
                 ForEach(availableTasks, id: \.id) { task in
                     taskButton(for: task)
                 }
@@ -113,22 +110,49 @@ struct TaskSelectorSheet: View {
         .padding(.horizontal, 24)
     }
     
+    private var emptyStateSection: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "list.bullet.clipboard")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary.opacity(0.6))
+            
+            VStack(spacing: 8) {
+                Text("No tasks yet")
+                    .font(.custom("Geist", size: 20))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Text("Add one to get started!")
+                    .font(.custom("Geist", size: 16))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+    
     private func taskButton(for task: Task) -> some View {
-        Button(action: { onTaskSelected(task) }) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+        Button(action: { 
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                onTaskSelected(task)
+            }
+        }) {
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(task.title)
                         .font(.custom("Geist", size: 16))
-                        .fontWeight(.medium)
+                        .fontWeight(.bold)
                         .foregroundColor(.primary)
+                        .lineLimit(2)
                     
                     if let tagName = task.tagName, let tagColor = task.tagColor {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Circle()
                                 .fill(colorFromString(tagColor))
                                 .frame(width: 8, height: 8)
                             Text(tagName)
-                                .font(.custom("Geist", size: 12))
+                                .font(.custom("Geist", size: 13))
                                 .fontWeight(.medium)
                                 .foregroundColor(.secondary)
                         }
@@ -139,25 +163,31 @@ struct TaskSelectorSheet: View {
                 
                 if selectedTask?.id == task.id {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.system(size: 20))
+                        .foregroundColor(.black)
+                        .font(.system(size: 20, weight: .medium))
+                        .scaleEffect(1.1)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTask?.id == task.id)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundColor(.secondary.opacity(0.6))
+                        .font(.system(size: 20, weight: .medium))
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(height: 60)
-            .background(taskBackground(for: task))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(selectedTask?.id == task.id ? Color.black.opacity(0.05) : Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(selectedTask?.id == task.id ? Color.black.opacity(0.3) : Color.gray.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+            .scaleEffect(selectedTask?.id == task.id ? 1.02 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTask?.id == task.id)
         }
         .buttonStyle(PlainButtonStyle())
-    }
-    
-    private func taskBackground(for task: Task) -> some View {
-        RoundedRectangle(cornerRadius: 10)
-            .fill(Color.white)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(selectedTask?.id == task.id ? Color.blue : Color.gray.opacity(0.3), lineWidth: selectedTask?.id == task.id ? 2 : 1)
-            )
     }
     
     private func colorFromString(_ colorString: String) -> Color {
