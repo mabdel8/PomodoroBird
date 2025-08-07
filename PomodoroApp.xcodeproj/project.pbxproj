@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2F32C35C2E407F5D00E70932 /* pomodorostorekit.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 2F32C35B2E407F5D00E70932 /* pomodorostorekit.storekit */; };
 		2FBA64962E35DAE500682163 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FBA64952E35DAE500682163 /* WidgetKit.framework */; };
 		2FBA64982E35DAE500682163 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FBA64972E35DAE500682163 /* SwiftUI.framework */; };
 		2FBA64A92E35DAE700682163 /* PomodoroLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2FBA64932E35DAE400682163 /* PomodoroLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -51,6 +52,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2F32C35B2E407F5D00E70932 /* pomodorostorekit.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = pomodorostorekit.storekit; sourceTree = "<group>"; };
 		2FBA63C22E31D47500682163 /* PomodoroApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PomodoroApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FBA63D42E31D47600682163 /* PomodoroAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomodoroAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FBA63DE2E31D47600682163 /* PomodoroAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomodoroAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -142,6 +144,7 @@
 		2FBA63B92E31D47500682163 = {
 			isa = PBXGroup;
 			children = (
+				2F32C35B2E407F5D00E70932 /* pomodorostorekit.storekit */,
 				2FBA63C42E31D47500682163 /* PomodoroApp */,
 				2FBA63D72E31D47600682163 /* PomodoroAppTests */,
 				2FBA63E12E31D47600682163 /* PomodoroAppUITests */,
@@ -319,6 +322,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2F32C35C2E407F5D00E70932 /* pomodorostorekit.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -519,6 +523,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PomodoroApp/PomodoroApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PomodoroApp/Preview Content\"";
@@ -537,7 +542,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -550,6 +555,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PomodoroApp/PomodoroApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"PomodoroApp/Preview Content\"";
@@ -568,7 +574,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroApp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -586,7 +592,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroAppTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -605,7 +611,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroAppTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -622,7 +628,7 @@
 				DEVELOPMENT_TEAM = 3K6UAJ55JH;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroAppUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -639,7 +645,7 @@
 				DEVELOPMENT_TEAM = 3K6UAJ55JH;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroAppUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimerUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -666,7 +672,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroApp.PomodoroLiveActivity;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimer.PomodoroLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -693,7 +699,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.PomodoroApp.PomodoroLiveActivity;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mohamedabdelmagid.pomodorotimer.PomodoroLiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;

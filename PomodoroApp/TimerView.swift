@@ -10,6 +10,7 @@ import SwiftData
 
 struct TimerView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appStateManager: AppStateManager
     @Query(sort: \FocusTag.name) private var tags: [FocusTag]
     @Query(filter: #Predicate<Task> { !$0.isCompleted }, sort: \Task.createdAt, order: .reverse) private var availableTasks: [Task]
     @Query private var timerStates: [AppTimerState]
@@ -111,7 +112,7 @@ struct TimerView: View {
     private func contentWithSheets(stateManager: TimerStateManager) -> some View {
         ZStack {
             mainContent(stateManager: stateManager)
-                .modifier(TimerSheetsModifier(stateManager: stateManager, tags: tags, availableTasks: availableTasks))
+                .modifier(TimerSheetsModifier(stateManager: stateManager, tags: tags, availableTasks: availableTasks, appStateManager: appStateManager))
                 .modifier(TimerOverlaysModifier(stateManager: stateManager))
             
             // Overlay to hide tab bar during hatching
@@ -649,6 +650,7 @@ struct TimerSheetsModifier: ViewModifier {
     let stateManager: TimerStateManager
     let tags: [FocusTag]
     let availableTasks: [Task]
+    @ObservedObject var appStateManager: AppStateManager
     
     func body(content: Content) -> some View {
         content
@@ -682,6 +684,7 @@ struct TimerSheetsModifier: ViewModifier {
                         set: { stateManager.selectedDuration = $0 }
                     ),
                     notificationManager: stateManager.notificationManager,
+                    appStateManager: appStateManager,
                     onDurationChange: { newDuration in
                         stateManager.selectedDuration = newDuration
                         if !stateManager.isTimerRunning {

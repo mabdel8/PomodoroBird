@@ -12,6 +12,7 @@ import Foundation
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appStateManager: AppStateManager
     @Query(sort: \FocusTag.name) private var tags: [FocusTag]
     @Query(filter: #Predicate<Task> { !$0.isCompleted }, sort: \Task.createdAt, order: .reverse) private var availableTasks: [Task]
     @Query private var timerStates: [AppTimerState]
@@ -22,6 +23,36 @@ struct ContentView: View {
     @State private var stateManager: TimerStateManager?
     
     var body: some View {
+        Group {
+            if appStateManager.showOnboarding {
+                OnboardingFlowView {
+                    appStateManager.onboardingCompleted()
+                }
+            } else if appStateManager.showPaywall {
+                PurchaseView(
+                    isPresented: $appStateManager.showPaywall,
+                    hasCooldown: !appStateManager.paywallIsManuallyOpened
+                )
+                    .environmentObject(appStateManager.purchaseManager)
+                    .onDisappear {
+                        appStateManager.paywallDismissed()
+                    }
+            } else {
+                mainAppContent
+            }
+        }
+        .onAppear {
+            initializeStateManager()
+        }
+        .onChange(of: appStateManager.navigateToAnalytics) { shouldNavigate in
+            if shouldNavigate {
+                selectedTab = 2 // Navigate to Analytics tab
+                appStateManager.analyticsNavigationHandled()
+            }
+        }
+    }
+    
+    private var mainAppContent: some View {
         TabView(selection: $selectedTab) {
             Group {
                 if let stateManager = stateManager {
@@ -62,8 +93,6 @@ struct ContentView: View {
                     Text("Analytics")
                 }
                 .tag(3)
-            
-
         }
         .accentColor(.black)
         .animation(.easeInOut(duration: 0.3), value: selectedTab)

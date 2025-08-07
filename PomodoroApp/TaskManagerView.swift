@@ -614,36 +614,46 @@ struct CompletedTaskRowView: View {
         }
     }
     
-    var totalTimeSpent: Int {
-        // actualDuration is in seconds, convert to minutes
+    var totalTimeSpentInSeconds: Int {
+        // actualDuration is already in seconds
         return sessions.reduce(0) { total, session in
-            total + (session.actualDuration / 60)
+            total + session.actualDuration
         }
     }
     
-    var totalBreakTime: Int {
-        // breakDuration is in seconds, convert to minutes
+    var totalBreakTimeInSeconds: Int {
+        // breakDuration is already in seconds
         return sessions.reduce(0) { total, session in
-            total + (session.breakDuration / 60)
+            total + session.breakDuration
         }
     }
     
     var formattedTime: String {
-        let hours = totalTimeSpent / 60
-        let minutes = totalTimeSpent % 60
+        let hours = totalTimeSpentInSeconds / 3600
+        let minutes = (totalTimeSpentInSeconds % 3600) / 60
+        let seconds = totalTimeSpentInSeconds % 60
         
         if hours > 0 {
-            return "\(hours)h \(minutes)m"
+            return "\(hours)h \(minutes)m \(seconds)s"
+        } else if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
         } else {
-            return "\(minutes)m"
+            return "\(seconds)s"
         }
     }
     
     var formattedBreakTime: String {
-        if totalBreakTime > 0 {
-            return "\(totalBreakTime)m"
+        if totalBreakTimeInSeconds > 0 {
+            let minutes = totalBreakTimeInSeconds / 60
+            let seconds = totalBreakTimeInSeconds % 60
+            
+            if minutes > 0 {
+                return "\(minutes)m \(seconds)s"
+            } else {
+                return "\(seconds)s"
+            }
         } else {
-            return "0m"
+            return "0s"
         }
     }
     
@@ -676,7 +686,7 @@ struct CompletedTaskRowView: View {
                     }
                     
                     // Time spent badge (only show time, no clock icon)
-                    if totalTimeSpent > 0 {
+                    if totalTimeSpentInSeconds > 0 {
                         Text(formattedTime)
                             .font(.custom("Geist", size: 12))
                             .fontWeight(.medium)
@@ -692,6 +702,37 @@ struct CompletedTaskRowView: View {
             }
             
             Spacer()
+            
+            // Time tags on the right side
+            VStack(alignment: .trailing, spacing: 4) {
+                // Time spent tag (no background)
+                if totalTimeSpentInSeconds > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.black)
+                        
+                        Text(formattedTime)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
+                }
+                
+                // Break time tag (no background)
+                if totalBreakTimeInSeconds > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cup.and.heat.waves")
+                            .font(.system(size: 10))
+                            .foregroundColor(.black)
+                        
+                        Text(formattedBreakTime)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
+                }
+            }
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 16)

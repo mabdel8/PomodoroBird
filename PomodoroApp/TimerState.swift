@@ -463,26 +463,11 @@ class TimerStateManager {
             modelContext.insert(newTimerState)
         }
         
-        // Create default "Working" task if no "Working" task exists (completed or incomplete)
-        do {
-            var descriptor = FetchDescriptor<Task>()
-            descriptor.predicate = #Predicate<Task> { $0.title == "Working" }
-            let existingWorkingTasks = try modelContext.fetch(descriptor)
-            
-            if existingWorkingTasks.isEmpty {
-                createDefaultWorkingTask()
-            }
-        } catch {
-            print("Error checking for existing Working tasks: \(error)")
-            // Fallback to old behavior
-            if availableTasks.isEmpty {
-                createDefaultWorkingTask()
-            }
-        }
+        // No default task creation - users can create their own tasks
         
-        // Set to last used task or first available task
+        // Set to last used task only if available
         if selectedTask == nil {
-            selectedTask = lastUsedTask ?? availableTasks.first
+            selectedTask = lastUsedTask
         }
         
         // Set initial time based on selected task duration or default
@@ -496,30 +481,7 @@ class TimerStateManager {
         }
     }
     
-    private func createDefaultWorkingTask() {
-        // Ensure default tags exist first
-        createDefaultTags()
-        
-        // Find the "Work" tag by querying database directly
-        do {
-            var descriptor = FetchDescriptor<FocusTag>()
-            descriptor.predicate = #Predicate<FocusTag> { $0.name == "Work" }
-            let workTags = try modelContext.fetch(descriptor)
-            
-            guard let workTag = workTags.first else {
-                print("Error: Work tag not found after creating default tags")
-                return
-            }
-            
-            // Create the default "Working" task
-            let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
-            modelContext.insert(defaultTask)
-            
-            try modelContext.save()
-        } catch {
-            print("Error creating default working task: \(error)")
-        }
-    }
+
     
     func calculateWorkTimeToday() {
         let calendar = Calendar.current
@@ -549,29 +511,31 @@ class TimerStateManager {
             ("Reading", "red")
         ]
         
-        for (name, color) in defaultTags {
-            // Check if tag with this name already exists by querying database directly
-            do {
-                var descriptor = FetchDescriptor<FocusTag>()
-                descriptor.predicate = #Predicate<FocusTag> { $0.name == name }
-                let existingTags = try modelContext.fetch(descriptor)
+        // Check if we already have any default tags to avoid unnecessary creation
+        do {
+            let descriptor = FetchDescriptor<FocusTag>()
+            let existingTags = try modelContext.fetch(descriptor)
+            
+            // If we already have 5 or more tags, skip creation (likely already initialized)
+            if existingTags.count >= 5 {
+                print("Default tags already exist, skipping creation")
+                return
+            }
+            
+            for (name, color) in defaultTags {
+                // Check if tag with this name already exists
+                let tagExists = existingTags.contains { $0.name == name }
                 
-                if existingTags.isEmpty {
+                if !tagExists {
                     let tag = FocusTag(name: name, color: color)
                     modelContext.insert(tag)
+                    print("Created default tag: \(name)")
                 }
-            } catch {
-                print("Error checking for existing tag '\(name)': \(error)")
-                // If query fails, try to create the tag anyway (SwiftData will handle duplicates)
-                let tag = FocusTag(name: name, color: color)
-                modelContext.insert(tag)
             }
-        }
-        
-        do {
+            
             try modelContext.save()
         } catch {
-            print("Error saving default tags: \(error)")
+            print("Error creating default tags: \(error)")
         }
     }
     
@@ -581,20 +545,26 @@ class TimerStateManager {
             let descriptor = FetchDescriptor<FocusTag>()
             let allTags = try modelContext.fetch(descriptor)
             
-            // Group tags by name
-            let tagGroups = Dictionary(grouping: allTags) { $0.name }
+            // Group tags by name (case-insensitive to catch variations)
+            let tagGroups = Dictionary(grouping: allTags) { $0.name.lowercased() }
+            
+            var deletedCount = 0
             
             // For each group with duplicates, keep the first one and delete the rest
-            for (name, tags) in tagGroups where tags.count > 1 {
-                print("Found \(tags.count) duplicate tags for '\(name)', removing \(tags.count - 1) duplicates")
+            for (_, tags) in tagGroups where tags.count > 1 {
+                print("Found \(tags.count) duplicate tags for '\(tags.first?.name ?? "unknown")', removing \(tags.count - 1) duplicates")
                 
                 // Keep the first tag, delete the rest
                 for i in 1..<tags.count {
                     modelContext.delete(tags[i])
+                    deletedCount += 1
                 }
             }
             
-            try modelContext.save()
+            if deletedCount > 0 {
+                try modelContext.save()
+                print("Successfully removed \(deletedCount) duplicate tags")
+            }
         } catch {
             print("Error cleaning up duplicate tags: \(error)")
         }
@@ -643,48 +613,9 @@ class TimerStateManager {
         } else if let selectedTask = selectedTask {
             taskForSession = selectedTask
         } else {
-            // Find existing "Working" task (including completed ones) or create new one
-            do {
-                var descriptor = FetchDescriptor<Task>()
-                descriptor.predicate = #Predicate<Task> { $0.title == "Working" }
-                let existingTasks = try modelContext.fetch(descriptor)
-                
-                if let existingTask = existingTasks.first {
-                    taskForSession = existingTask
-                } else {
-                    // Create new Working task
-                    createDefaultTags() // Ensure default tags exist
-                    
-                    // Query database directly for Work tag
-                    var tagDescriptor = FetchDescriptor<FocusTag>()
-                    tagDescriptor.predicate = #Predicate<FocusTag> { $0.name == "Work" }
-                    guard let workTag = try? modelContext.fetch(tagDescriptor).first else {
-                        print("Error: Work tag not found after creating default tags")
-                        return
-                    }
-                    
-                    let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
-                    modelContext.insert(defaultTask)
-                    try? modelContext.save()
-                    taskForSession = defaultTask
-                }
-            } catch {
-                // Fallback: create new task
-                createDefaultTags() // Ensure default tags exist
-                
-                // Query database directly for Work tag
-                var tagDescriptor = FetchDescriptor<FocusTag>()
-                tagDescriptor.predicate = #Predicate<FocusTag> { $0.name == "Work" }
-                guard let workTag = try? modelContext.fetch(tagDescriptor).first else {
-                    print("Error: Work tag not found after creating default tags")
-                    return
-                }
-                
-                let defaultTask = Task(title: "Working", duration: 25, tag: workTag)
-                modelContext.insert(defaultTask)
-                try? modelContext.save()
-                taskForSession = defaultTask
-            }
+            // No task selected - this should not happen anymore since users must select/create tasks
+            print("Warning: Timer started without a selected task")
+            return
         }
         
         let session = FocusSession(
