@@ -1426,20 +1426,42 @@ struct SessionHistoryView: View {
 struct SessionRowView: View {
     let session: FocusSession
     
-    private var dateFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }
-    
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter
     }
     
-        var body: some View {
+    var formattedSessionTime: String {
+        let hours = session.actualDuration / 3600
+        let minutes = (session.actualDuration % 3600) / 60
+        let seconds = session.actualDuration % 60
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m \(seconds)s"
+        } else if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+    
+    var formattedBreakTime: String {
+        if session.breakDuration > 0 {
+            let minutes = session.breakDuration / 60
+            let seconds = session.breakDuration % 60
+            
+            if minutes > 0 {
+                return "\(minutes)m \(seconds)s"
+            } else {
+                return "\(seconds)s"
+            }
+        } else {
+            return "0s"
+        }
+    }
+    
+    var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(session.taskTitle ?? "Focus Session")
@@ -1463,23 +1485,35 @@ struct SessionRowView: View {
 
             Spacer()
 
+            // Time tags on the right side - matching completed task cards
             VStack(alignment: .trailing, spacing: 4) {
-                // Duration as pill
-                Text("\(session.actualDuration / 60) min")
-                    .font(.custom("Geist", size: 12))
-                    .fontWeight(.medium)
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(Color.black.opacity(0.1))
-                    )
-
-                // Time only (no date)
-                Text(timeFormatter.string(from: session.createdAt))
-                    .font(.custom("Geist", size: 11))
-                    .foregroundColor(.secondary)
+                // Time spent tag (no background)
+                if session.actualDuration > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.black)
+                        
+                        Text(formattedSessionTime)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
+                }
+                
+                // Break time tag (no background)
+                if session.breakDuration > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cup.and.heat.waves")
+                            .font(.system(size: 10))
+                            .foregroundColor(.black)
+                        
+                        Text(formattedBreakTime)
+                            .font(.custom("Geist", size: 12))
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                    }
+                }
             }
         }
     }
