@@ -893,7 +893,7 @@ struct TimerSettingsView: View {
     }
     
     private func openPrivacyPolicy() {
-        if let url = URL(string: "https://abdalla2024.github.io/FokisPomodoroTimer/#/terms") {
+        if let url = URL(string: "https://abdalla2024.github.io/FokisPomodoroTimer/#/privacy") {
             UIApplication.shared.open(url)
         }
     }
